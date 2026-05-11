@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>Innovator</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>innovator</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(FLUTTER_BUILD_NAME)</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>$(FLUTTER_BUILD_NUMBER)</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <!-- ===================== -->
+    <!-- INTERNET / NETWORKING -->
+    <!-- ===================== -->
+    <!-- iOS allows internet by default; no explicit key needed -->
+    <!-- Allow HTTP (cleartext) traffic — equivalent to usesCleartextTraffic -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+
+    <!-- ========================= -->
+    <!-- CAMERA PERMISSION         -->
+    <!-- ========================= -->
+    <!-- Equivalent to android.permission.CAMERA -->
+    <key>NSCameraUsageDescription</key>
+    <string>Innovator needs camera access for video calls and scanning.</string>
+
+    <!-- ========================= -->
+    <!-- MICROPHONE PERMISSION     -->
+    <!-- ========================= -->
+    <!-- Equivalent to android.hardware.microphone (required) -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Innovator needs microphone access for audio and video calls.</string>
+
+    <!-- ========================= -->
+    <!-- PHOTO LIBRARY PERMISSIONS -->
+    <!-- ========================= -->
+    <!-- Equivalent to READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Innovator needs access to your photo library to send and save media.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Innovator needs permission to save photos and media to your library.</string>
+
+    <!-- ========================= -->
+    <!-- NOTIFICATIONS             -->
+    <!-- ========================= -->
+    <!-- Equivalent to POST_NOTIFICATIONS + Firebase channel setup -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <!-- Equivalent to WAKE_LOCK + background Firebase messaging -->
+        <string>fetch</string>
+        <string>remote-notification</string>
+        <!-- Equivalent to foreground call service (phoneCall + microphone) -->
+        <string>voip</string>
+        <!-- Equivalent to RECORD_AUDIO in background -->
+        <string>audio</string>
+        <!-- Equivalent to background processing / RECEIVE_BOOT_COMPLETED -->
+        <string>processing</string>
+    </array>
+
+    <!-- Firebase / APNs default channel -->
+    <key>FirebaseAppDelegateProxyEnabled</key>
+    <false/>
+
+    <!-- ========================= -->
+    <!-- DEEP LINKING              -->
+    <!-- ========================= -->
+    <!-- Equivalent to android:scheme="innovator" deep link -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
+            <string>com.innovation.innovator</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>innovator</string>
+            </array>
+        </dict>
+    </array>
+
+    <!-- Universal Links (equivalent to android:autoVerify="true") -->
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>applinks:yourdomain.com</string>
+    </array>
+
+    <!-- ========================= -->
+    <!-- VOIP / CALL HANDLING      -->
+    <!-- ========================= -->
+    <!-- Equivalent to DISABLE_KEYGUARD + TURN_SCREEN_ON + showWhenLocked -->
+    <!-- Handled via PushKit (VoIP pushes) — register in AppDelegate -->
+    <!-- No plist key; requires PushKit entitlement + CallKit setup in code -->
+
+    <!-- ========================= -->
+    <!-- BATTERY / BACKGROUND      -->
+    <!-- ========================= -->
+    <!-- Equivalent to REQUEST_IGNORE_BATTERY_OPTIMIZATIONS -->
+    <!-- iOS has no direct equivalent; VoIP background mode is the closest -->
+
+    <!-- ========================= -->
+    <!-- FACE ID (optional)        -->
+    <!-- ========================= -->
+    <!-- Add if your app uses local auth / biometrics -->
+    <!-- <key>NSFaceIDUsageDescription</key> -->
+    <!-- <string>Innovator uses Face ID for secure authentication.</string> -->
+
+    <!-- ========================= -->
+    <!-- CONTACTS (optional)       -->
+    <!-- ========================= -->
+    <!-- Add if your app accesses contacts for calling features -->
+    <!-- <key>NSContactsUsageDescription</key> -->
+    <!-- <string>Innovator needs contacts access to find people to call.</string> -->
+
+    <!-- ========================= -->
+    <!-- UI CONFIGURATION          -->
+    <!-- ========================= -->
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UIMainStoryboardFile</key>
+    <string>Main</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+
+</dict>
+</plist>
