@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5B8DEF"/>
+      <stop offset="100%" style="stop-color:#00E5CC"/>
+    </linearGradient>
+    <clipPath id="circle">
+      <circle cx="32" cy="32" r="32"/>
+    </clipPath>
+  </defs>
+  <!-- Circle background with gradient -->
+  <circle cx="32" cy="32" r="32" fill="url(#grad)"/>
+  <!-- Dark inner circle for depth -->
+  <circle cx="32" cy="32" r="30" fill="#0A0A0F" opacity="0.15"/>
+  <!-- Bold P letter -->
+  <text x="32" y="44" 
+        font-family="Arial Black, Arial, sans-serif" 
+        font-weight="900" 
+        font-size="36" 
+        fill="#ffffff" 
+        text-anchor="middle"
+        letter-spacing="-1">P</text>
+</svg>
