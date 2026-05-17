@@ -6,7 +6,7 @@ import { PERSONAL, EMAILJS } from '../config'
 import emailjs from 'emailjs-com'
 
 
-const CV_PATH = '/cv/Prashant-Sharma-cv.pdf'
+const CV_PATH = '/cv/Ronit-Shrivastav-cv.pdf'
 
 const SOCIAL_LINKS = [
   {
@@ -81,7 +81,7 @@ export default function Contact() {
           from_email: form.email,
           subject:    form.subject || 'Portfolio Contact',
           message:    form.message,
-          to_name:    'Prashant',
+          to_name:    'Ronit',
         },
         EMAILJS.publicKey
       )
@@ -152,7 +152,7 @@ export default function Contact() {
             {/* Download CV */}
             <a
               href={CV_PATH}
-              download="Prashant-Sharma-CV.pdf"
+              download="Ronit-Shrivastav-cv.pdf"
               className="btn-primary text-sm py-2.5 px-5"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
