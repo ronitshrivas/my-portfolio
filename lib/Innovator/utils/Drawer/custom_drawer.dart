@@ -493,8 +493,6 @@ class _TrueInstantDrawerState extends ConsumerState<TrueInstantDrawer> {
     );
   }
 
-  // ── Navigation ──────────────────────────────────────────────────────────────
-
   void _goToProfile() => _quickNavigate(
     () => ProviderScope(
       child: UserProfileScreen(userId: AppData().currentUserId ?? ''),
@@ -513,8 +511,6 @@ class _TrueInstantDrawerState extends ConsumerState<TrueInstantDrawer> {
     Navigator.of(context).pop();
     Navigator.push(context, MaterialPageRoute(builder: (_) => builder()));
   }
-
-  // ── Logout ──────────────────────────────────────────────────────────────────
 
   void _showLogout() {
     showDialog(
@@ -584,10 +580,6 @@ class _TrueInstantDrawerState extends ConsumerState<TrueInstantDrawer> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _DrawerHeader — extracted as its own widget so only IT rebuilds when profile
-// data changes, not the entire drawer (menu items stay frozen).
-// ─────────────────────────────────────────────────────────────────────────────
 class _DrawerHeader extends StatelessWidget {
   final DrawerProfileState profile;
   final bool kmsEnabled;
@@ -728,9 +720,6 @@ class _DrawerHeader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _ProfileAvatar — tiny widget so image swaps don't trigger menu rebuild
-// ─────────────────────────────────────────────────────────────────────────────
 class _ProfileAvatar extends StatelessWidget {
   final DrawerProfileState profile;
 
@@ -746,9 +735,6 @@ class _ProfileAvatar extends StatelessWidget {
               : '${ApiConstants.userBase}${profile.picture}';
     }
 
-    // FIX: Only append ?v= when the image actually changed (imageVersion is bumped
-    // in the notifier only on real avatar change). This prevents unnecessary
-    // cache-busting on every drawer open.
     final versionedUrl =
         resolvedUrl != null && profile.imageVersion > 0
             ? '$resolvedUrl?v=${profile.imageVersion}'
@@ -792,9 +778,6 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _RefreshBadge — const so Flutter skips it entirely when not rebuilding
-// ─────────────────────────────────────────────────────────────────────────────
 class _RefreshBadge extends StatelessWidget {
   const _RefreshBadge();
 
@@ -818,9 +801,6 @@ class _RefreshBadge extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _DrawerFooter — const widget, built once, never rebuilt
-// ─────────────────────────────────────────────────────────────────────────────
 class _DrawerFooter extends StatelessWidget {
   const _DrawerFooter();
 
@@ -848,7 +828,7 @@ class _DrawerFooter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Innovator App v:1.0.50',
+                'Innovator App v : 1.0.67',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -871,9 +851,6 @@ class _DrawerFooter extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _QuickMenuItem — const-constructible, no rebuilds
-// ─────────────────────────────────────────────────────────────────────────────
 class _QuickMenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -953,12 +930,6 @@ class _QuickMenuItem extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public interface & compatibility aliases
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Updated: requires WidgetRef so the notifier is pre-warmed before animation.
-/// In floating_menu.dart, pass `ref` from the ConsumerStatefulWidget.
 class SmoothDrawerService {
   static void showLeftDrawer(BuildContext context, WidgetRef ref) {
     InstantDrawerService.show(context, ref);

@@ -71,18 +71,24 @@ class _LikeButtonState extends State<LikeButton>
     );
     _bounceAnim = TweenSequence([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.45)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 1.45,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 40,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.45, end: 0.88)
-            .chain(CurveTween(curve: Curves.easeInOut)),
+        tween: Tween<double>(
+          begin: 1.45,
+          end: 0.88,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
         weight: 30,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.88, end: 1.0)
-            .chain(CurveTween(curve: Curves.elasticOut)),
+        tween: Tween<double>(
+          begin: 0.88,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
         weight: 30,
       ),
     ]).animate(_bounceCtrl);
@@ -103,8 +109,8 @@ class _LikeButtonState extends State<LikeButton>
   void _onSyncResult(
     String contentId,
     bool succeeded,
-    ReactionType? reactionType,   // what was attempted
-    ReactionType? previousType,   // what was there BEFORE the offline action
+    ReactionType? reactionType, // what was attempted
+    ReactionType? previousType, // what was there BEFORE the offline action
   ) {
     if (!mounted) return;
 
@@ -115,9 +121,7 @@ class _LikeButtonState extends State<LikeButton>
         _isSyncing = false;
         _currentReaction = reactionType; // confirm final state
       });
-      developer.log(
-        '[LikeButton] ✓ Sync confirmed for ${widget.contentId}',
-      );
+      developer.log('[LikeButton] ✓ Sync confirmed for ${widget.contentId}');
     } else {
       // API rejected (4xx) or 5xx — revert to previous state immediately
       // WITHOUT requiring a page refresh
@@ -212,19 +216,21 @@ class _LikeButtonState extends State<LikeButton>
       ReactionResult result;
       if (type == null) {
         // Removing reaction
-        result = widget.isReel
-            ? await widget.likeService.reactReel(
-                widget.contentId,
-                previous ?? ReactionType.like,
-              )
-            : await widget.likeService.reactPost(
-                widget.contentId,
-                previous ?? ReactionType.like,
-              );
+        result =
+            widget.isReel
+                ? await widget.likeService.reactReel(
+                  widget.contentId,
+                  previous ?? ReactionType.like,
+                )
+                : await widget.likeService.reactPost(
+                  widget.contentId,
+                  previous ?? ReactionType.like,
+                );
       } else {
-        result = widget.isReel
-            ? await widget.likeService.reactReel(widget.contentId, type)
-            : await widget.likeService.reactPost(widget.contentId, type);
+        result =
+            widget.isReel
+                ? await widget.likeService.reactReel(widget.contentId, type)
+                : await widget.likeService.reactPost(widget.contentId, type);
       }
 
       if (result.success) {
@@ -295,15 +301,16 @@ class _LikeButtonState extends State<LikeButton>
   void _showReactionPicker() {
     final overlay = Overlay.of(context);
     _overlayEntry = OverlayEntry(
-      builder: (_) => _ReactionPickerOverlay(
-        layerLink: _layerLink,
-        onSelect: (type) {
-          _removeOverlay();
-          _applyReaction(type);
-        },
-        onDismiss: _removeOverlay,
-        currentReaction: _currentReaction,
-      ),
+      builder:
+          (_) => _ReactionPickerOverlay(
+            layerLink: _layerLink,
+            onSelect: (type) {
+              _removeOverlay();
+              _applyReaction(type);
+            },
+            onDismiss: _removeOverlay,
+            currentReaction: _currentReaction,
+          ),
     );
     overlay.insert(_overlayEntry!);
   }
@@ -332,8 +339,9 @@ class _LikeButtonState extends State<LikeButton>
         behavior: HitTestBehavior.opaque,
         child: AnimatedBuilder(
           animation: _bounceAnim,
-          builder: (context, child) =>
-              Transform.scale(scale: _bounceAnim.value, child: child),
+          builder:
+              (context, child) =>
+                  Transform.scale(scale: _bounceAnim.value, child: child),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: Row(
@@ -343,16 +351,22 @@ class _LikeButtonState extends State<LikeButton>
                   clipBehavior: Clip.none,
                   children: [
                     // Always full opacity — looks identical online or offline
-                    emoji != null
+                    reaction == ReactionType.like
+                        ? Image.asset(
+                          'animation/IdeaBulb_Filled.gif',
+                          width: 26,
+                          height: 26,
+                        )
+                        : emoji != null
                         ? Text(
-                            emoji,
-                            style: TextStyle(fontSize: 22, color: iconColor),
-                          )
+                          emoji,
+                          style: TextStyle(fontSize: 22, color: iconColor),
+                        )
                         : Icon(
-                            Icons.thumb_up_alt_outlined,
-                            color: iconColor,
-                            size: 22,
-                          ),
+                          Icons.lightbulb_outline,
+                          color: iconColor,
+                          size: 22,
+                        ),
 
                     // Tiny spinner only while actively syncing to API
                     if (_isSyncing)
@@ -529,28 +543,36 @@ class _ReactionPickerOverlayState extends State<_ReactionPickerOverlay>
         tween: Tween(begin: 1.0, end: targetScale),
         duration: const Duration(milliseconds: 280),
         curve: Curves.elasticOut,
-        builder: (_, scale, child) => TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: targetY),
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutBack,
-          builder: (_, dy, __) => Transform.translate(
-            offset: Offset(0, dy),
-            child: Transform.scale(scale: scale, child: child),
-          ),
-        ),
+        builder:
+            (_, scale, child) => TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: targetY),
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              builder:
+                  (_, dy, __) => Transform.translate(
+                    offset: Offset(0, dy),
+                    child: Transform.scale(scale: scale, child: child),
+                  ),
+            ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
-              Text(
-                r.emoji,
-                style: TextStyle(
-                  fontSize: isActive ? 20 : 18,
-                  inherit: false,
-                ),
-              ),
+              r == ReactionType.like
+                  ? Image.asset(
+                    'animation/IdeaBulb_Filled.gif',
+                    width: isActive ? 24 : 22,
+                    height: isActive ? 24 : 22,
+                  )
+                  : Text(
+                    r.emoji,
+                    style: TextStyle(
+                      fontSize: isActive ? 20 : 18,
+                      inherit: false,
+                    ),
+                  ),
               if (isHovered)
                 Positioned(
                   bottom: 30,

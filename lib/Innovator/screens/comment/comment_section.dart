@@ -1,4 +1,3 @@
- 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:innovator/Innovator/App_data/App_data.dart';
@@ -13,7 +12,6 @@ class CommentSection extends StatefulWidget {
   // final VoidCallback? onCommentAdded;
   final bool isReel;
   final void Function(int delta)? onCommentCountChanged;
-  
 
   // const CommentSection({Key? key, required this.contentId, this.onCommentAdded})
   //   : super(key: key);
@@ -503,6 +501,8 @@ class _CommentSectionState extends State<CommentSection> {
     final replies = _replies[comment.id] ?? [];
     final isExpanded = _expandedReplies.contains(comment.id);
     final loadingReplies = _loadingReplies.contains(comment.id);
+    final displayCount =
+        replies.isNotEmpty ? replies.length : comment.replyCount;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -512,6 +512,7 @@ class _CommentSectionState extends State<CommentSection> {
         bottom: isReply ? 0 : 2,
       ),
       child: Row(
+        //mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Avatar
@@ -557,15 +558,20 @@ class _CommentSectionState extends State<CommentSection> {
                       Text(
                         '@${comment.username}',
                         style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
                           color: Colors.black87,
+                          fontFamily: 'Inter thin',
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         comment.content,
-                        style: const TextStyle(fontSize: 13),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontFamily: 'Inter thin',
+                          color: Colors.black,
+                        ),
                       ),
                     ],
                   ),
@@ -630,7 +636,10 @@ class _CommentSectionState extends State<CommentSection> {
                 ),
 
                 if (!isReply &&
-                    (loadingReplies || replies.isNotEmpty || isExpanded))
+                    (loadingReplies ||
+                        replies.isNotEmpty ||
+                        isExpanded ||
+                        comment.replyCount > 0))
                   GestureDetector(
                     onTap: () => _toggleReplies(comment.id),
                     child: Padding(
@@ -658,7 +667,7 @@ class _CommentSectionState extends State<CommentSection> {
                                   Text(
                                     isExpanded
                                         ? 'Hide replies (${replies.length})'
-                                        : 'View ${replies.length} repl${replies.length == 1 ? 'y' : 'ies'}',
+                                        : 'View $displayCount repl${displayCount == 1 ? 'y' : 'ies'}',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,

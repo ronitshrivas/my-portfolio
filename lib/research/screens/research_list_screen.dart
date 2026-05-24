@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:innovator/research/core/constants/api_constants.dart';
 import 'package:innovator/research/core/widget/research_card.dart';
 import 'package:innovator/research/core/widget/research_card_skeleton.dart';
 import 'package:innovator/research/provider/research_provider.dart';
@@ -27,8 +28,8 @@ class ResearchListScreen extends ConsumerStatefulWidget {
 }
 
 class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
-  final _scrollCtrl = ScrollController();
-  final _searchCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
 
   String? _selType;
   String? _selStatus;
@@ -38,6 +39,13 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _openDetail(int paperId) async {
@@ -50,13 +58,6 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _scrollCtrl.dispose();
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
   void _onScroll() {
     if (_isLoadMoreScheduled) return;
     if (_scrollCtrl.position.pixels <
@@ -65,9 +66,7 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
 
     _isLoadMoreScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(researchListProvider.notifier).loadMore();
-      }
+      if (mounted) ref.read(researchListProvider.notifier).loadMore();
       _isLoadMoreScheduled = false;
     });
   }
@@ -113,7 +112,6 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
                       bottom: 10,
                       right: 4,
                     ),
-
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
                       shape: BoxShape.rectangle,
@@ -122,7 +120,7 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
                     ),
                     child: IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.arrow_back_ios,
                         color: Colors.black,
                         size: 20,
@@ -139,37 +137,38 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
             ),
           ),
           centerTitle: true,
-           actions: [
-    GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MyEarningsScreen()),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(right: 16),
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [_kBlue, _kBlueMid],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          shape: BoxShape.circle,
-        ),
-        child: const Center(
-          child: Text(
-            'R',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
+          actions: [
+            GestureDetector(
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyEarningsScreen()),
+                  ),
+              child: Container(
+                margin: const EdgeInsets.only(right: 16),
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_kBlue, _kBlueMid],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Text(
+                    'R',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-    ),
-  ],
+          ],
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(0.5),
             child: Container(height: 0.5, color: _kBorder),
@@ -179,7 +178,7 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
           children: [
             Container(
               color: _kCard,
-              child: _SearchFilterBar(
+              child: SearchFilterBar(
                 searchCtrl: _searchCtrl,
                 selType: _selType,
                 selStatus: _selStatus,
@@ -206,16 +205,16 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
   }
 
   Widget _buildBody(ResearchListState state) {
-    // if (state.isLoading && state.papers.isEmpty) {
-    //   return const Center(
-    //     child: CircularProgressIndicator(color: _kBlue, strokeWidth: 2.5),
-    //   );
-    // }
-
     if (state.isLoading && state.papers.isEmpty) {
-      return ListView.builder(
+      return GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(top: 8, bottom: 28),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.62,
+        ),
         itemCount: 6,
         itemBuilder: (_, __) => const ResearchCardSkeleton(),
       );
@@ -230,7 +229,7 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.65,
-            child: _ErrorView(message: state.error!, onRetry: _refresh),
+            child: ErrorView(message: state.error!, onRetry: _refresh),
           ),
         ),
       );
@@ -239,7 +238,6 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
     if (state.papers.isEmpty) {
       final hasFilters =
           _selType != null || _selStatus != null || _searchCtrl.text.isNotEmpty;
-
       return RefreshIndicator(
         onRefresh: _refresh,
         color: _kBlue,
@@ -248,7 +246,7 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.65,
-            child: _EmptyView(
+            child: EmptyView(
               hasFilters: hasFilters,
               onUpload: () => UploadResearchPaperSheet.show(context),
               onClearFilters: () {
@@ -269,32 +267,28 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
       onRefresh: _refresh,
       color: _kBlue,
       strokeWidth: 2.5,
-      child: ListView.builder(
+      child: GridView.builder(
         controller: _scrollCtrl,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(top: 8, bottom: 28),
-        itemCount: state.papers.length + (state.isLoadingMore ? 1 : 0),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.62,
+        ),
+        itemCount: state.papers.length + (state.isLoadingMore ? 2 : 0),
         itemBuilder: (context, i) {
-          if (i == state.papers.length) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(
-                child: CircularProgressIndicator(color: _kBlue, strokeWidth: 2),
-              ),
-            );
+          if (i >= state.papers.length) {
+            return const ResearchCardSkeleton();
           }
+          final paper = state.papers[i];
           return GestureDetector(
-            // onTap: () {
-            //   Navigator.push(
-            //     context,
-            //     MaterialPageRoute(
-            //       builder:
-            //           (_) => ResearchDetailScreen(paperId: state.papers[i].id),
-            //     ),
-            //   );
-            // },
-            onTap: () => _openDetail(state.papers[i].id),
-            child: ResearchPaperCard(paper: state.papers[i]),
+            onTap: () => _openDetail(paper.id),
+            child: ResearchGridCard(
+              paper: paper,
+              pdfUrl: '${ResearchApi.baseUrl}${paper.fileUrl}',
+            ),
           );
         },
       ),
@@ -302,7 +296,7 @@ class _ResearchListScreenState extends ConsumerState<ResearchListScreen> {
   }
 }
 
-class _SearchFilterBar extends StatelessWidget {
+class SearchFilterBar extends StatelessWidget {
   final TextEditingController searchCtrl;
   final String? selType;
   final String? selStatus;
@@ -311,7 +305,8 @@ class _SearchFilterBar extends StatelessWidget {
   final ValueChanged<String> onSearchSubmitted;
   final VoidCallback onSearchCleared;
 
-  const _SearchFilterBar({
+  const SearchFilterBar({
+    super.key,
     required this.searchCtrl,
     required this.selType,
     required this.selStatus,
@@ -368,15 +363,12 @@ class _SearchFilterBar extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 10),
-
-          // Filter chips row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _Chip(
+                PaperFilterChip(
                   label: 'All',
                   selected: selType == null && selStatus == null,
                   onTap: () {
@@ -385,13 +377,13 @@ class _SearchFilterBar extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 8),
-                _Chip(
+                PaperFilterChip(
                   label: 'Free',
                   selected: selType == 'free',
                   onTap: () => onTypeChanged(selType == 'free' ? null : 'free'),
                 ),
                 const SizedBox(width: 8),
-                _Chip(
+                PaperFilterChip(
                   label: 'Paid',
                   selected: selType == 'paid',
                   onTap: () => onTypeChanged(selType == 'paid' ? null : 'paid'),
@@ -399,7 +391,7 @@ class _SearchFilterBar extends StatelessWidget {
                 const SizedBox(width: 12),
                 Container(width: 1, height: 20, color: _kBorder),
                 const SizedBox(width: 12),
-                _Chip(
+                PaperFilterChip(
                   label: 'Active',
                   selected: selStatus == 'active',
                   onTap:
@@ -408,7 +400,7 @@ class _SearchFilterBar extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(width: 8),
-                _Chip(
+                PaperFilterChip(
                   label: 'Pending',
                   selected: selStatus == 'pending',
                   onTap:
@@ -416,10 +408,10 @@ class _SearchFilterBar extends StatelessWidget {
                         selStatus == 'pending' ? null : 'pending',
                       ),
                 ),
-
-                _Chip(
-                  label: "Upload",
-                  selected: selType == 'upload',
+                const SizedBox(width: 8),
+                PaperFilterChip(
+                  label: 'Upload',
+                  selected: false,
                   onTap: () => UploadResearchPaperSheet.show(context),
                 ),
               ],
@@ -431,12 +423,13 @@ class _SearchFilterBar extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
+class PaperFilterChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _Chip({
+  const PaperFilterChip({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -451,10 +444,10 @@ class _Chip extends StatelessWidget {
         height: 34,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: selected ? Color.fromRGBO(244, 135, 6, 1) : Colors.transparent,
+          color: selected ? const Color(0xFFF48706) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? Color.fromRGBO(244, 135, 6, 1) : _kBorder,
+            color: selected ? const Color(0xFFF48706) : _kBorder,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -472,10 +465,11 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _ErrorView extends StatelessWidget {
+class ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
-  const _ErrorView({required this.message, required this.onRetry});
+
+  const ErrorView({super.key, required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -549,12 +543,13 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _EmptyView extends StatelessWidget {
+class EmptyView extends StatelessWidget {
   final bool hasFilters;
   final VoidCallback onUpload;
   final VoidCallback onClearFilters;
 
-  const _EmptyView({
+  const EmptyView({
+    super.key,
     required this.hasFilters,
     required this.onUpload,
     required this.onClearFilters,
@@ -613,9 +608,7 @@ class _EmptyView extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color:
-                      hasFilters
-                          ? Colors.transparent
-                          : Color.fromRGBO(244, 135, 6, 1),
+                      hasFilters ? Colors.transparent : const Color(0xFFF48706),
                   borderRadius: BorderRadius.circular(10),
                   border: hasFilters ? Border.all(color: _kBorder) : null,
                 ),

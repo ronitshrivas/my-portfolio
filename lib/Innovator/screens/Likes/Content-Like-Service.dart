@@ -31,7 +31,7 @@ extension ReactionTypeExtension on ReactionType {
   String get emoji {
     switch (this) {
       case ReactionType.like:
-        return '👍';
+        return '💡';
       case ReactionType.love:
         return '❤️';
       case ReactionType.haha:
@@ -134,9 +134,7 @@ class ContentLikeService {
       final data = json.decode(response.body) as Map<String, dynamic>;
       return ReactionResult(
         success: true,
-        reactionType: ReactionTypeExtension.fromValue(
-          data['type']?.toString(),
-        ),
+        reactionType: ReactionTypeExtension.fromValue(data['type']?.toString()),
         reactionId: data['id']?.toString(),
       );
     } else if (response.statusCode == 204) {
@@ -144,7 +142,9 @@ class ContentLikeService {
     } else if (response.statusCode >= 400 && response.statusCode < 500) {
       throw NonRetryableException(
         response.statusCode,
-        response.body.isNotEmpty ? response.body : 'HTTP ${response.statusCode}',
+        response.body.isNotEmpty
+            ? response.body
+            : 'HTTP ${response.statusCode}',
       );
     } else {
       log('[Reaction] Server error ${response.statusCode} — will retry later');
@@ -177,9 +177,7 @@ class ContentLikeService {
       final data = json.decode(response.body) as Map<String, dynamic>;
       return ReactionResult(
         success: true,
-        reactionType: ReactionTypeExtension.fromValue(
-          data['type']?.toString(),
-        ),
+        reactionType: ReactionTypeExtension.fromValue(data['type']?.toString()),
         reactionId: data['id']?.toString(),
       );
     } else if (response.statusCode == 204) {
@@ -187,7 +185,9 @@ class ContentLikeService {
     } else if (response.statusCode >= 400 && response.statusCode < 500) {
       throw NonRetryableException(
         response.statusCode,
-        response.body.isNotEmpty ? response.body : 'HTTP ${response.statusCode}',
+        response.body.isNotEmpty
+            ? response.body
+            : 'HTTP ${response.statusCode}',
       );
     } else {
       log('[Reaction] Server error ${response.statusCode} — will retry later');
@@ -232,6 +232,3 @@ class ContentLikeService {
   Future<bool> likeContent(String postId) => toggleLike(postId, true);
   Future<bool> unlikeContent(String postId) => toggleLike(postId, false);
 }
-
-
-

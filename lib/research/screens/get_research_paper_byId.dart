@@ -1,5 +1,8 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:innovator/research/core/constants/api_constants.dart';
+import 'package:innovator/research/core/constants/pdf_cache.dart';
 import 'package:innovator/research/core/widget/research_detail_skeleton.dart';
 import 'package:innovator/research/model/research_detail_model.dart';
 import 'package:innovator/research/provider/research_provider.dart';
@@ -37,11 +40,6 @@ class ResearchDetailScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
         backgroundColor: _kCard,
         elevation: 0,
-
-        // leading: IconButton(
-        //   onPressed: () => Navigator.pop(context),
-        //   icon: const Icon(Icons.arrow_back_ios, size: 20, color: _kText),
-        // ),
         leading:
             Navigator.canPop(context)
                 ? Container(
@@ -51,7 +49,6 @@ class ResearchDetailScreen extends ConsumerWidget {
                     bottom: 10,
                     right: 4,
                   ),
-
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     shape: BoxShape.rectangle,
@@ -60,8 +57,7 @@ class ResearchDetailScreen extends ConsumerWidget {
                   ),
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.arrow_back_ios,
                       color: Colors.black,
                       size: 20,
@@ -110,12 +106,6 @@ class ResearchDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     ResearchDetailState state,
   ) {
-    // if (state.isLoading && state.data == null) {
-    //   return const Center(
-    //     child: CircularProgressIndicator(color: _kBlue, strokeWidth: 2.5),
-    //   );
-    // }
-
     if (state.isLoading && state.data == null) {
       return const ResearchDetailSkeleton();
     }
@@ -130,7 +120,7 @@ class ResearchDetailScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.65,
-            child: _ErrorView(
+            child: DetailErrorView(
               message: state.error!,
               onRetry:
                   () =>
@@ -165,7 +155,7 @@ class ResearchDetailScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           ResearcherCard(researchers: detail.researchers),
           const SizedBox(height: 12),
-          _ActionButton(paper: detail.paper),
+          ActionButton(paper: detail.paper),
           const SizedBox(height: 28),
         ],
       ),
@@ -174,8 +164,9 @@ class ResearchDetailScreen extends ConsumerWidget {
 }
 
 class HeaderCard extends StatelessWidget {
-  const HeaderCard({required this.paper});
   final ResearchPaperDetailModel paper;
+
+  const HeaderCard({super.key, required this.paper});
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +227,7 @@ class HeaderCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              _Badge(
+              StatusBadge(
                 label: paper.type == 'paid' ? 'Paid' : 'Free',
                 bgColor: paper.type == 'paid' ? _kOrangeSoft : _kGreenSoft,
                 textColor: paper.type == 'paid' ? _kOrange : _kGreen,
@@ -246,7 +237,7 @@ class HeaderCard extends StatelessWidget {
                         : Icons.lock_open_rounded,
               ),
               const SizedBox(width: 8),
-              _Badge(
+              StatusBadge(
                 label: _capitalize(paper.status),
                 bgColor: paper.status == 'active' ? _kGreenSoft : _kBlueSoft,
                 textColor: paper.status == 'active' ? _kGreen : _kBlueMid,
@@ -275,8 +266,9 @@ class HeaderCard extends StatelessWidget {
 }
 
 class DescriptionCard extends StatelessWidget {
-  const DescriptionCard({required this.description});
   final String description;
+
+  const DescriptionCard({super.key, required this.description});
 
   @override
   Widget build(BuildContext context) {
@@ -310,8 +302,9 @@ class DescriptionCard extends StatelessWidget {
 }
 
 class DetailsCard extends StatelessWidget {
-  const DetailsCard({required this.paper});
   final ResearchPaperDetailModel paper;
+
+  const DetailsCard({super.key, required this.paper});
 
   @override
   Widget build(BuildContext context) {
@@ -334,14 +327,16 @@ class DetailsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-
-          Details(
+          DetailRow(
             icon: Icons.calendar_today_rounded,
             label: 'Uploaded',
             value: _formatDate(paper.createdAt),
           ),
-          _divider(),
-          Details(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Container(height: 0.5, color: _kBorder),
+          ),
+          DetailRow(
             icon: Icons.update_rounded,
             label: 'Last Updated',
             value: _formatDate(paper.updatedAt),
@@ -350,25 +345,21 @@ class DetailsCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _divider() => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: Container(height: 0.5, color: _kBorder),
-  );
 }
 
-class Details extends StatelessWidget {
-  const Details({
+class DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const DetailRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,
     this.valueColor = _kText,
   });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -392,8 +383,9 @@ class Details extends StatelessWidget {
 }
 
 class ResearcherCard extends StatelessWidget {
-  const ResearcherCard({required this.researchers});
   final List<ResearcherModel> researchers;
+
+  const ResearcherCard({super.key, required this.researchers});
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +431,7 @@ class ResearcherCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           for (int i = 0; i < researchers.length; i++) ...[
-            _ResearcherRow(researcher: researchers[i]),
+            ResearcherRow(researcher: researchers[i]),
             if (i < researchers.length - 1)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -452,9 +444,10 @@ class ResearcherCard extends StatelessWidget {
   }
 }
 
-class _ResearcherRow extends StatelessWidget {
-  const _ResearcherRow({required this.researcher});
+class ResearcherRow extends StatelessWidget {
   final ResearcherModel researcher;
+
+  const ResearcherRow({super.key, required this.researcher});
 
   @override
   Widget build(BuildContext context) {
@@ -528,21 +521,26 @@ class _ResearcherRow extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.paper});
+class ActionButton extends StatelessWidget {
   final ResearchPaperDetailModel paper;
+
+  const ActionButton({super.key, required this.paper});
 
   @override
   Widget build(BuildContext context) {
     final isPaid = paper.type == 'paid';
+
     return GestureDetector(
       onTap: () {
         if (!isPaid) {
-          // here later use the khalti link with the pidx and go to the payment for the paid one and integrate the pdf view if the paper is for free
+          final fullUrl =
+              paper.fileUrl.startsWith('http')
+                  ? paper.fileUrl
+                  : '${ResearchApi.baseUrl}${paper.fileUrl}';
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PDFViewer(url: paper.fileUrl, title: paper.title),
+              builder: (_) => PDFViewer(url: fullUrl, title: paper.title),
             ),
           );
         } else {
@@ -584,10 +582,15 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+class DetailErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
+
+  const DetailErrorView({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -661,18 +664,19 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({
+class StatusBadge extends StatelessWidget {
+  final String label;
+  final Color bgColor;
+  final Color textColor;
+  final IconData icon;
+
+  const StatusBadge({
+    super.key,
     required this.label,
     required this.bgColor,
     required this.textColor,
     required this.icon,
   });
-
-  final String label;
-  final Color bgColor;
-  final Color textColor;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -701,6 +705,87 @@ class _Badge extends StatelessWidget {
   }
 }
 
+class PDFViewer extends StatefulWidget {
+  final String url;
+  final String title;
+
+  const PDFViewer({super.key, required this.url, required this.title});
+
+  @override
+  State<PDFViewer> createState() => _PDFViewerState();
+}
+
+class _PDFViewerState extends State<PDFViewer> {
+  late final Future<Uint8List?> _bytesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytesFuture = PdfBytesCache.fetch(widget.url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E293B),
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFE2E8F0)),
+        ),
+      ),
+      body: FutureBuilder<Uint8List?>(
+        future: _bytesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: _kBlue, strokeWidth: 2.5),
+                  SizedBox(height: 14),
+                  Text(
+                    'Loading PDF...',
+                    style: TextStyle(fontSize: 14, color: _kTextMuted),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (snapshot.data == null) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cloud_off_rounded, size: 40, color: _kTextMuted),
+                  SizedBox(height: 10),
+                  Text(
+                    'Failed to load PDF',
+                    style: TextStyle(fontSize: 14, color: _kTextMuted),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return SfPdfViewer.memory(snapshot.data!);
+        },
+      ),
+    );
+  }
+}
+
 String _capitalize(String s) =>
     s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
@@ -720,28 +805,4 @@ String _formatDate(DateTime dt) {
     'Dec',
   ];
   return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-}
-
-class PDFViewer extends StatelessWidget {
-  final String url;
-  final String title;
-  const PDFViewer({required this.url, required this.title});
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-      ),
-      backgroundColor: Colors.white,
-      foregroundColor: const Color(0xFF1E293B),
-      elevation: 0,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: const Color(0xFFE2E8F0)),
-      ),
-    ),
-    body: SfPdfViewer.network(url),
-  );
 }

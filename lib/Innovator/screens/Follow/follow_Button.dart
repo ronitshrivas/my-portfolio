@@ -131,43 +131,49 @@ class _FollowButtonState extends State<FollowButton>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _handleTap,
-        child: AnimatedContainer(
+        child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: _isFollowing ? Colors.transparent : Colors.blue.shade600,
-            border: Border.all(
-              color: _isFollowing ? Colors.green : Colors.blue.shade600,
-              width: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            transitionBuilder:
-                (child, animation) =>
-                    FadeTransition(opacity: animation, child: child),
-            child: Row(
-              key: ValueKey(_isFollowing),
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isFollowing ? Icons.check : Icons.person_add,
-                  size: 14,
-                  color: _isFollowing ? Colors.green : AppColors.whitecolor,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _isFollowing ? 'Following' : 'Follow',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _isFollowing ? Colors.green : AppColors.whitecolor,
-                  ),
-                ),
-              ],
-            ),
+          transitionBuilder:
+              (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+          child: Row(
+            key: ValueKey(_isFollowing),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children:
+                _isFollowing
+                    ? [
+                      Icon(
+                        Icons.check,
+                        size: 15,
+                        color:
+                            _isFollowing ? Colors.green : AppColors.whitecolor,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Following',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              _isFollowing
+                                  ? Colors.green
+                                  : AppColors.whitecolor,
+                        ),
+                      ),
+                    ]
+                    : [
+                      Icon(Icons.add, size: 15, color: Colors.blue.shade700),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Follow',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
           ),
         ),
       ),

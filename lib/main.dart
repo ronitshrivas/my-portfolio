@@ -342,8 +342,6 @@
 //   }
 // }
 
-
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
@@ -476,8 +474,7 @@ class _InnovatorHomePageState extends ConsumerState<InnovatorHomePage>
           developer.log('Local notification tapped: ${details.payload}');
           if (details.payload != null) {
             try {
-              final data =
-                  jsonDecode(details.payload!) as Map<String, dynamic>;
+              final data = jsonDecode(details.payload!) as Map<String, dynamic>;
               // Use a small delay so the navigator is ready
               Future.delayed(
                 const Duration(milliseconds: 300),
@@ -605,8 +602,7 @@ class _InnovatorHomePageState extends ConsumerState<InnovatorHomePage>
       final androidDetails = AndroidNotificationDetails(
         'high_importance_channel',
         'High Importance Notifications',
-        channelDescription:
-            'This channel is used for important notifications',
+        channelDescription: 'This channel is used for important notifications',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,

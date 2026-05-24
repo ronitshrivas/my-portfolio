@@ -2,6 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
 import 'package:innovator/Innovator/models/Feed_Content_Model.dart';
+import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/OptimizeMediaScreen.dart';
+import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/full_screen_image_viewer.dart';
+import 'package:innovator/Innovator/screens/SHow_Specific_Profile/Show_Specific_Profile.dart';
 
 const _kOrange = Color.fromRGBO(244, 135, 6, 1);
 const _kOrangeLight = Color.fromRGBO(244, 135, 6, 0.10);
@@ -25,7 +28,7 @@ class SharedPostCard extends StatelessWidget {
     return 'Just now';
   }
 
-  Widget _avatar(String? url, String name) {
+  Widget _avatar(String? url, String name, BuildContext context) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     if (url == null || url.isEmpty) {
       return CircleAvatar(
@@ -41,33 +44,47 @@ class SharedPostCard extends StatelessWidget {
         ),
       );
     }
-    return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: url,
-        width: 28,
-        height: 28,
-        fit: BoxFit.cover,
-        placeholder:
-            (_, __) => CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.grey.shade200,
-              child: Text(
-                initial,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-              ),
-            ),
-        errorWidget:
-            (_, __, ___) => CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.grey.shade300,
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: AppColors.whitecolor,
-                  fontSize: 11,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => FullScreenImageViewer(
+                  imageUrl: url,
+                  tag: 'shared_post_${details.id}',
+                ),
+          ),
+        );
+      },
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: url,
+          width: 28,
+          height: 28,
+          fit: BoxFit.cover,
+          placeholder:
+              (_, __) => CircleAvatar(
+                radius: 14,
+                backgroundColor: Colors.grey.shade200,
+                child: Text(
+                  initial,
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                 ),
               ),
-            ),
+          errorWidget:
+              (_, __, ___) => CircleAvatar(
+                radius: 14,
+                backgroundColor: Colors.grey.shade300,
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: AppColors.whitecolor,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+        ),
       ),
     );
   }
@@ -226,7 +243,7 @@ class SharedPostCard extends StatelessWidget {
                 const SizedBox(width: 6),
 
                 // Avatar
-                _avatar(details.avatar, details.username),
+                _avatar(details.avatar, details.username, context),
                 const SizedBox(width: 8),
 
                 // Name + time

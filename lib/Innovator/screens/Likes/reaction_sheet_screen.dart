@@ -22,7 +22,7 @@ class _reeactionsheetState extends State<reeactionsheet> {
   bool _isLoading = true;
 
   final Map<String, String> _emojiMap = {
-    'like': '👍',
+    'like': '�',
     'love': '❤️',
     'haha': '😂',
     'wow': '😮',
@@ -148,7 +148,7 @@ class _reeactionsheetState extends State<reeactionsheet> {
                           children: [
                             if (tab != 'all')
                               Text(
-                                _emojiMap[tab] ?? '👍',
+                                _emojiMap[tab] ?? '�',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.red,
@@ -276,10 +276,19 @@ class _reeactionsheetState extends State<reeactionsheet> {
                                     ),
                                   ),
                                   child: Center(
-                                    child: Text(
-                                      _emojiMap[type] ?? '👍',
-                                      style: const TextStyle(fontSize: 10),
-                                    ),
+                                    child:
+                                        type == 'like'
+                                            ? Image.asset(
+                                              'animation/IdeaBulb_Filled.gif',
+                                              width: 13,
+                                              height: 13,
+                                            )
+                                            : Text(
+                                              _emojiMap[type] ?? '💡',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                              ),
+                                            ),
                                   ),
                                 ),
                               ),
@@ -367,7 +376,7 @@ class _reeactionsheetState extends State<reeactionsheet> {
   String? _errorMessage;
 
   final Map<String, String> _emojiMap = {
-    'like': '👍',
+    'like': '�',
     'love': '❤️',
     'haha': '😂',
     'wow': '😮',
@@ -722,7 +731,7 @@ class _reeactionsheetState extends State<reeactionsheet> {
                         children: [
                           if (tab != 'all')
                             Text(
-                              _emojiMap[tab] ?? '👍',
+                              _emojiMap[tab] ?? '�',
                               style: const TextStyle(fontSize: 14),
                             ),
                           if (tab != 'all') const SizedBox(width: 4),
@@ -917,7 +926,7 @@ class _reeactionsheetState extends State<reeactionsheet> {
                 ),
                 child: Center(
                   child: Text(
-                    _emojiMap[type] ?? '👍',
+                    _emojiMap[type] ?? '�',
                     style: const TextStyle(fontSize: 10),
                   ),
                 ),

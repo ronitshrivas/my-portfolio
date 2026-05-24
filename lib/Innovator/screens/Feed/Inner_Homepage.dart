@@ -16,6 +16,7 @@ import 'package:innovator/Innovator/controllers/user_controller.dart';
 import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/OptimizeMediaScreen.dart';
 import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/full_screen_image_viewer.dart';
 import 'package:innovator/Innovator/screens/Feed/facebook_video_widget.dart';
+import 'package:innovator/Innovator/screens/Likes/glow_bulb_button.dart';
 import 'package:innovator/Innovator/screens/chatrrom/screen/chatlistscreen.dart';
 import 'package:innovator/Innovator/widget/CustomizeFAB.dart';
 import 'package:innovator/Innovator/widget/repost_button.dart';
@@ -1134,144 +1135,109 @@ class _FeedItemState extends State<FeedItem>
                       ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          top: 2.0,
-                          right: 2.0,
-                          left: 2.0,
-                          bottom: 2.0,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Flexible(
-                                    child: LayoutBuilder(
-                                      // children: [
-                                      //   Text(
-                                      //     widget.content.author.name,
-                                      //     style: const TextStyle(
-                                      //       fontWeight: FontWeight.w700,
-                                      //       fontSize: 16.0,
-                                      //       fontFamily: 'InterThin',
-                                      //     ),
-                                      //     maxLines: 1,
-                                      //     overflow: TextOverflow.ellipsis,
-                                      //   ),
-                                      //   SizedBox(width: 5),
-                                      //   Container(
-                                      //     width: 4.0,
-                                      //     height: 4.0,
-                                      //     decoration: BoxDecoration(
-                                      //       color: _getTypeColor(
-                                      //         widget.content.type,
-                                      //       ),
-                                      //       shape: BoxShape.circle,
-                                      //     ),
-                                      //   ),
-                                      // ],
-                                      builder: (context, constraints) {
-                                        final nameStyle = const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16.0,
-                                          fontFamily: 'InterThin',
-                                        );
-
-                                        // Measure how wide the name actually is
-                                        final tp = TextPainter(
-                                          text: TextSpan(
-                                            text: widget.content.author.name,
-                                            style: nameStyle,
-                                          ),
-                                          maxLines: 1,
-                                          textDirection: TextDirection.ltr,
-                                        )..layout(maxWidth: double.infinity);
-
-                                        final nameWillOverflow =
-                                            tp.width > constraints.maxWidth;
-
-                                        return Text(
-                                          widget.content.author.name,
+                      // ── Name + Follow + More ──────────────────────────────
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Flexible(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final nameStyle = const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16.0,
+                                        fontFamily: 'Inter Thin',
+                                      );
+                                      final tp = TextPainter(
+                                        text: TextSpan(
+                                          text: widget.content.author.name,
                                           style: nameStyle,
-                                          overflow:
-                                              nameWillOverflow
-                                                  ? TextOverflow.ellipsis
-                                                  : TextOverflow.visible,
-                                          maxLines: 1,
-                                          softWrap: false,
-                                        );
+                                        ),
+                                        maxLines: 1,
+                                        textDirection: TextDirection.ltr,
+                                      )..layout(maxWidth: double.infinity);
+                                      final nameWillOverflow =
+                                          tp.width > constraints.maxWidth;
+                                      return Text(
+                                        widget.content.author.name,
+                                        style: nameStyle,
+                                        overflow:
+                                            nameWillOverflow
+                                                ? TextOverflow.ellipsis
+                                                : TextOverflow.visible,
+                                        maxLines: 1,
+                                        softWrap: false,
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8.0),
+                                if (!isOwnContent)
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {},
+                                    child: FollowButton(
+                                      targetUserId: widget.content.author.id,
+                                      initialFollowStatus:
+                                          widget.content.isFollowed,
+                                      onFollowSuccess: () {
+                                        SoundPlayer().FollowSound();
+                                        if (mounted) {
+                                          setState(
+                                            () =>
+                                                widget.content.isFollowed =
+                                                    true,
+                                          );
+                                          widget.onFollowToggled(true);
+                                        }
+                                      },
+                                      onUnfollowSuccess: () {
+                                        SoundPlayer().FollowSound();
+                                        if (mounted) {
+                                          setState(
+                                            () =>
+                                                widget.content.isFollowed =
+                                                    false,
+                                          );
+                                          widget.onFollowToggled(false);
+                                        }
                                       },
                                     ),
                                   ),
-
-                                  const SizedBox(width: 8.0),
-                                  if (!isOwnContent)
-                                    GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () {},
-                                      child: FollowButton(
-                                        targetUserId: widget.content.author.id,
-                                        initialFollowStatus:
-                                            widget.content.isFollowed,
-                                        onFollowSuccess: () {
-                                          SoundPlayer().FollowSound();
-                                          if (mounted) {
-                                            setState(
-                                              () =>
-                                                  widget.content.isFollowed =
-                                                      true,
-                                            );
-                                            widget.onFollowToggled(true);
-                                          }
-                                        },
-                                        onUnfollowSuccess: () {
-                                          SoundPlayer().FollowSound();
-                                          if (mounted) {
-                                            setState(
-                                              () =>
-                                                  widget.content.isFollowed =
-                                                      false,
-                                            );
-                                            widget.onFollowToggled(false);
-                                          }
-                                        },
-                                      ),
-                                      // maxLines: 1,
-                                      // overflow: TextOverflow.ellipsis,
-                                    ),
-                                ],
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12.0),
+                            onTap: () {
+                              if (_isAuthorCurrentUser()) {
+                                _showQuickSuggestions(context);
+                              } else {
+                                _showQuickspecificSuggestions(context);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.more_vert_rounded,
+                                color: Colors.grey.shade600,
+                                size: 20.0,
                               ),
                             ),
-
-                            InkWell(
-                              borderRadius: BorderRadius.circular(12.0),
-                              onTap: () {
-                                if (_isAuthorCurrentUser()) {
-                                  _showQuickSuggestions(context);
-                                } else {
-                                  _showQuickspecificSuggestions(context);
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  Icons.more_vert_rounded,
-                                  color: Colors.grey.shade600,
-                                  size: 20.0,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+
+                      // ── Date + Type — NO Padding wrapper, NO vertical gaps ──
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const SizedBox(width: 4.0),
                           Text(
                             formattedTimeAgo,
                             style: TextStyle(
@@ -1280,21 +1246,15 @@ class _FeedItemState extends State<FeedItem>
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 8.0),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 2.0,
-                            ),
-                            child: Text(
-                              widget.content.type.toUpperCase(),
-                              style: TextStyle(
-                                color: _getTypeColor(widget.content.type),
-                                fontSize: 12.0,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.7,
-                                fontFamily: 'InterThin',
-                              ),
+                          const SizedBox(width: 4.0),
+                          Text(
+                            '· ${widget.content.type.toUpperCase()}',
+                            style: TextStyle(
+                              color: _getTypeColor(widget.content.type),
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                              fontFamily: 'InterThin',
                             ),
                           ),
                         ],
@@ -1309,6 +1269,7 @@ class _FeedItemState extends State<FeedItem>
           if (widget.content.status.isNotEmpty)
             Container(
               padding: EdgeInsets.only(
+                top: 12.0,
                 left: 16.0,
                 right: 16.0,
                 bottom: widget.content.files.isNotEmpty ? 8.0 : 16.0,
@@ -1321,7 +1282,7 @@ class _FeedItemState extends State<FeedItem>
                       final span = TextSpan(
                         text: widget.content.status,
                         style: const TextStyle(
-                          fontSize: 15.0,
+                          fontSize: 12.0,
                           fontFamily: 'InterThin',
                         ),
                       );
@@ -1340,7 +1301,7 @@ class _FeedItemState extends State<FeedItem>
                             child: _LinkifyText(
                               text: widget.content.status,
                               style: const TextStyle(
-                                fontSize: 15,
+                                fontSize: 13.5,
                                 height: 1.5,
                                 color: Colors.black,
                                 fontWeight: FontWeight.w500,
@@ -1382,7 +1343,7 @@ class _FeedItemState extends State<FeedItem>
 
           if (!widget.content.isRepost && widget.content.files.isNotEmpty)
             Container(
-              margin: EdgeInsets.symmetric(horizontal: 1.0),
+              margin: EdgeInsets.symmetric(horizontal: 1.0, vertical: 6.0),
               child: _buildMediaPreview(),
             ),
           const SizedBox(height: 10.0),
@@ -1406,6 +1367,17 @@ class _FeedItemState extends State<FeedItem>
               children: [
                 Row(
                   children: [
+                    // GlowBulbButton(
+                    //   contentId: widget.content.id,
+                    //   initialLikeStatus: widget.content.isLiked,
+                    //   likeService: likeService,
+                    //   initialReactionType: widget.content.currentUserReaction,
+                    //   isReel: widget.content.isReel,
+                    //   onLikeToggled: (isLiked) {
+                    //     widget.onLikeToggled(isLiked);
+                    //     SoundPlayer().playlikeSound();
+                    //   },
+                    // ),
                     LikeButton(
                       contentId: widget.content.id,
                       initialLikeStatus: widget.content.isLiked,
@@ -1431,12 +1403,11 @@ class _FeedItemState extends State<FeedItem>
                   ],
                 ),
                 const SizedBox(width: 30),
-                Row(
-                  children: [
-                    InkWell(
-                      onTap:
-                          () => setState(() => _showComments = !_showComments),
-                      child: Image.asset(
+                InkWell(
+                  onTap: () => setState(() => _showComments = !_showComments),
+                  child: Row(
+                    children: [
+                      Image.asset(
                         'assets/icon/comment.png',
                         color:
                             _showComments
@@ -1445,17 +1416,17 @@ class _FeedItemState extends State<FeedItem>
                         width: 25,
                         height: 25,
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '${widget.content.comments} Comments',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                        fontSize: 11.0,
+                      const SizedBox(width: 10),
+                      Text(
+                        '${widget.content.comments} Comments',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                          fontSize: 11.0,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 SizedBox(width: 20),
                 Row(

@@ -1,5 +1,12 @@
 // comment_Model.dart
-// Maps the new API response from http://36.253.137.34:8005/api/comments/
+import 'package:innovator/Innovator/constant/api_constants.dart';
+
+// ✅ Top-level — outside the class
+String _resolveAvatarUrl(String? path) {
+  if (path == null || path.isEmpty) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return '${ApiConstants.userBase}${path.startsWith('/') ? '' : '/'}$path';
+}
 
 class Comment {
   final String id;
@@ -11,7 +18,7 @@ class Comment {
   final String content;
   final DateTime createdAt;
   final bool isReel;
-  // Replies are loaded separately via /api/replies/ but stored here after fetch
+  final int replyCount;
   List<Comment> replies;
 
   Comment({
@@ -24,6 +31,7 @@ class Comment {
     required this.content,
     required this.createdAt,
     this.isReel = false,
+    this.replyCount = 0,
     this.replies = const [],
   });
 
@@ -33,11 +41,14 @@ class Comment {
     return Comment(
       id: json['id']?.toString() ?? '',
       username: json['username']?.toString() ?? 'Unknown',
-      avatar: json['avatar']?.toString(),
+      avatar: _resolveAvatarUrl(json['avatar']?.toString()),
       postId: json['post']?.toString() ?? '',
       parentId: json['parent']?.toString(),
       reel: json['reel'] ?? '',
       content: json['content']?.toString() ?? '',
+      replyCount:
+          (json['reply_count'] ?? json['replies_count'] ?? json['replies'] ?? 0)
+              as int,
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),

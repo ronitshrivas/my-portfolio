@@ -2110,12 +2110,10 @@
 //   );
 // }
 
-
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'package:cached_network_image/cached_network_image.dart'; 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2406,8 +2404,10 @@ class ReelsFeedNotifier extends StateNotifier<AsyncValue<List<ReelModel>>> {
     if (!hadReaction && reaction != null) {
       list[index].reactionsCount++;
     } else if (hadReaction && reaction == null) {
-      list[index].reactionsCount =
-          (list[index].reactionsCount - 1).clamp(0, 999999);
+      list[index].reactionsCount = (list[index].reactionsCount - 1).clamp(
+        0,
+        999999,
+      );
     }
 
     state = AsyncValue.data(List.from(list));
@@ -2865,7 +2865,8 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
   // correctly revert on failure and avoid the stale-reference bug.
   Future<void> _react(ReactionType type) async {
     final reel = widget.reel;
-    final oldReaction = reel.currentUserReaction; // snapshot before any mutation
+    final oldReaction =
+        reel.currentUserReaction; // snapshot before any mutation
     final isSame = oldReaction == type.value;
     final notifier = ref.read(reelsFeedProvider.notifier);
 
@@ -2949,7 +2950,10 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             ),
             title: const Text(
               'Edit Caption',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             content: TextField(
               controller: tc,
@@ -2988,7 +2992,8 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
                   final err = await ref
                       .read(reelsFeedProvider.notifier)
                       .editReel(widget.reel.id, cap);
-                  if (mounted) _snack(err ?? 'Caption updated!', err: err != null);
+                  if (mounted)
+                    _snack(err ?? 'Caption updated!', err: err != null);
                 },
                 child: const Text(
                   'Save',
@@ -3014,7 +3019,10 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             ),
             title: const Text(
               'Delete Reel',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             content: const Text(
               'This reel will be permanently deleted.',
@@ -3064,7 +3072,7 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
   }
 
   void _share() => Share.share(
-    'Check out this reel by @${widget.reel.username}!\n${widget.reel.bestVideoUrl ?? ''}',
+    'Download Now \n https://play.google.com/store/apps/details?id=com.innovation.innovator&pcampaignid=web_share',
   );
 
   void _snack(String msg, {bool err = false}) {
@@ -3163,10 +3171,7 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color.fromRGBO(0, 0, 0, 0.6),
-                Colors.transparent,
-              ],
+              colors: [Color.fromRGBO(0, 0, 0, 0.6), Colors.transparent],
             ),
           ),
         ),
@@ -3181,10 +3186,7 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
-              colors: [
-                Color.fromRGBO(0, 0, 0, 0.85),
-                Colors.transparent,
-              ],
+              colors: [Color.fromRGBO(0, 0, 0, 0.85), Colors.transparent],
             ),
           ),
         ),
@@ -3237,7 +3239,11 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
-                const Icon(Icons.repeat_rounded, color: Colors.white70, size: 14),
+                const Icon(
+                  Icons.repeat_rounded,
+                  color: Colors.white70,
+                  size: 14,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'Reposted from @${widget.reel.sharedReelDetails!.username}',
@@ -3251,12 +3257,15 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             ),
           ),
         GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SpecificUserProfilePage(userId: widget.reel.userId),
-            ),
-          ),
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (_) =>
+                          SpecificUserProfilePage(userId: widget.reel.userId),
+                ),
+              ),
           child: Row(
             children: [
               _buildAvatar(),
@@ -3313,7 +3322,10 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
       alignment: Alignment.center,
       child: Text(
         initial,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
     return Container(
@@ -3360,12 +3372,21 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
                     child: Center(
                       child:
                           reaction != null
-                              ? Text(
-                                reaction.emoji,
-                                style: const TextStyle(fontSize: 28,inherit: false),
-                              )
+                              ? reaction == ReactionType.like
+                                  ? Image.asset(
+                                    'animation/IdeaBulb_Filled.gif',
+                                    width: 32,
+                                    height: 32,
+                                  )
+                                  : Text(
+                                    reaction.emoji,
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      inherit: false,
+                                    ),
+                                  )
                               : const Icon(
-                                Icons.favorite_border_rounded,
+                                Icons.lightbulb_outline,
                                 color: Colors.white,
                                 size: 30,
                                 shadows: [Shadow(blurRadius: 6)],
@@ -3400,11 +3421,7 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
             ),
             const SizedBox(height: 20),
           ],
-          ActionButton(
-            icon: Icons.send_rounded,
-            label: 'Share',
-            onTap: _share,
-          ),
+          ActionButton(icon: Icons.send_rounded, label: 'Share', onTap: _share),
           IconButton(
             icon: const Icon(
               Icons.more_vert_rounded,
@@ -3415,9 +3432,10 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
           ),
           const SizedBox(height: 12),
           ActionButton(
-            icon: widget.isMuted
-                ? Icons.volume_off_rounded
-                : Icons.volume_up_rounded,
+            icon:
+                widget.isMuted
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
             label: '',
             onTap: widget.onMuteToggle,
           ),
@@ -3725,75 +3743,93 @@ class _ReactionPickerState extends State<ReactionPicker>
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: ReactionType.values.map((reaction) {
-                      final isActive = widget.currentReaction == reaction;
-                      final isHovered = _hovered == reaction;
-                      return GestureDetector(
-                        onTap: () => widget.onSelect(reaction),
-                        onTapDown: (_) => setState(() => _hovered = reaction),
-                        onTapCancel: () => setState(() => _hovered = null),
-                        child: SizedBox(
-                          width: 56,
-                          height: itemHeight,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            clipBehavior: Clip.none,
-                            children: [
-                              if (isActive)
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Color.fromRGBO(255, 255, 255, 0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              TweenAnimationBuilder<double>(
-                                tween: Tween(
-                                  begin: 1.0,
-                                  end: isHovered
-                                      ? 1.4
-                                      : (isActive ? 1.15 : 1.0),
-                                ),
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeOutBack,
-                                builder: (_, s, c) =>
-                                    Transform.scale(scale: s, child: c),
-                                child: Text(
-                                  reaction.emoji,
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    inherit: false,
-                                  ),
-                                ),
-                              ),
-                              if (isHovered)
-                                Positioned(
-                                  left: -72,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black87,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      reaction.label,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
+                    children:
+                        ReactionType.values.map((reaction) {
+                          final isActive = widget.currentReaction == reaction;
+                          final isHovered = _hovered == reaction;
+                          return GestureDetector(
+                            onTap: () => widget.onSelect(reaction),
+                            onTapDown:
+                                (_) => setState(() => _hovered = reaction),
+                            onTapCancel: () => setState(() => _hovered = null),
+                            child: SizedBox(
+                              width: 56,
+                              height: itemHeight,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                clipBehavior: Clip.none,
+                                children: [
+                                  if (isActive)
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Color.fromRGBO(
+                                          255,
+                                          255,
+                                          255,
+                                          0.15,
+                                        ),
+                                        shape: BoxShape.circle,
                                       ),
                                     ),
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween(
+                                      begin: 1.0,
+                                      end:
+                                          isHovered
+                                              ? 1.4
+                                              : (isActive ? 1.15 : 1.0),
+                                    ),
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeOutBack,
+                                    builder:
+                                        (_, s, c) =>
+                                            Transform.scale(scale: s, child: c),
+                                    child:
+                                        reaction == ReactionType.like
+                                            ? Image.asset(
+                                              'animation/IdeaBulb_Filled.gif',
+                                              width: isActive ? 30 : 26,
+                                              height: isActive ? 30 : 26,
+                                            )
+                                            : Text(
+                                              reaction.emoji,
+                                              style: const TextStyle(
+                                                fontSize: 26,
+                                                inherit: false,
+                                              ),
+                                            ),
                                   ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                                  if (isHovered)
+                                    Positioned(
+                                      left: -72,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black87,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          reaction.label,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
                   ),
                 ),
               ),
