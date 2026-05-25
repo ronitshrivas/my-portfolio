@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:innovator/Innovator/screens/Follow/follow-Service.dart';
 import 'package:innovator/Innovator/screens/Follow/follow_Button.dart';
+import 'package:innovator/Innovator/screens/chatrrom/sound/soundplayer.dart';
 import 'package:innovator/Innovator/screens/show_Specific_Profile/Show_Specific_Profile.dart';
 
 import 'package:innovator/Innovator/screens/suggested_users/model/suggested_users_model.dart';
@@ -22,7 +23,8 @@ class _P {
 }
 
 class SuggestedUsersSection extends ConsumerWidget {
-  const SuggestedUsersSection({super.key});
+  final bool horizontal;
+  const SuggestedUsersSection({super.key, this.horizontal = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,21 +38,45 @@ class SuggestedUsersSection extends ConsumerWidget {
           const Divider(height: 1, thickness: 1, color: _P.border),
           _Header(onRefresh: () => ref.invalidate(suggestProvider)),
           const SizedBox(height: 12),
-          Expanded(
-            child: async.when(
-              loading: () => const _ShimmerRow(),
-              error:
-                  (e, _) => _ErrorState(
-                    message: e.toString().replaceFirst('Exception: ', ''),
-                    onRetry: () => ref.invalidate(suggestProvider),
-                  ),
-              data:
-                  (response) =>
-                      response.suggestions.isEmpty
-                          ? const _EmptyState()
-                          : _UserList(users: response.suggestions),
+          if (horizontal)
+            SizedBox(
+              height: 175,
+              child: async.when(
+                loading: () => const _ShimmerRow(),
+                error:
+                    (e, _) => _ErrorState(
+                      message: e.toString().replaceFirst('Exception: ', ''),
+                      onRetry: () => ref.invalidate(suggestProvider),
+                    ),
+                data:
+                    (response) =>
+                        response.suggestions.isEmpty
+                            ? const _EmptyState()
+                            : _UserList(
+                              users: response.suggestions,
+                              horizontal: true,
+                            ),
+              ),
+            )
+          else
+            Expanded(
+              child: async.when(
+                loading: () => const _ShimmerRow(),
+                error:
+                    (e, _) => _ErrorState(
+                      message: e.toString().replaceFirst('Exception: ', ''),
+                      onRetry: () => ref.invalidate(suggestProvider),
+                    ),
+                data:
+                    (response) =>
+                        response.suggestions.isEmpty
+                            ? const _EmptyState()
+                            : _UserList(
+                              users: response.suggestions,
+                              horizontal: false,
+                            ),
+              ),
             ),
-          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -104,16 +130,35 @@ class _Header extends StatelessWidget {
 
 class _UserList extends StatelessWidget {
   final List<SuggestedUser> users;
-  const _UserList({required this.users});
+  final bool horizontal;
+  const _UserList({required this.users, this.horizontal = false});
 
   @override
   Widget build(BuildContext context) {
+    if (horizontal) {
+      return ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: users.length,
+        itemBuilder:
+            (context, i) => SizedBox(
+              width: 120,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _AnimatedCard(
+                  index: i,
+                  child: _UserCard(user: users[i]),
+                ),
+              ),
+            ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GridView.builder(
         shrinkWrap: false,
         physics: AlwaysScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 12,
           mainAxisSpacing: 16,
@@ -204,34 +249,32 @@ class _UserCardState extends State<_UserCard> {
     return Container(
       decoration: BoxDecoration(
         color: _P.card,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _P.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0F000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+            blurRadius: 10,
+            offset: Offset(0, 3),
           ),
         ],
       ),
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => SpecificUserProfilePage(userId: widget.user.userId),
+        onTap:
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (_) => SpecificUserProfilePage(userId: widget.user.userId),
+              ),
             ),
-          );
-        },
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center, // CENTER vertically
           children: [
-            SizedBox(height: 2),
-            _Avatar(user: widget.user),
-
-            const SizedBox(height: 10),
+            _Avatar(user: widget.user, radius: 28), // bigger avatar
+            const SizedBox(height: 8),
             Text(
               widget.user.displayName,
               style: const TextStyle(
@@ -243,11 +286,10 @@ class _UserCardState extends State<_UserCard> {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 5),
-
+            const SizedBox(height: 4),
             if (widget.user.mutualCount > 0)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: _P.mutualBg,
                   borderRadius: BorderRadius.circular(20),
@@ -255,26 +297,25 @@ class _UserCardState extends State<_UserCard> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.people_rounded,
-                      size: 10,
-                      color: _P.orange,
-                    ),
+                    const Icon(Icons.people_rounded, size: 9, color: _P.orange),
                     const SizedBox(width: 3),
                     Text(
                       '${widget.user.mutualCount} mutual',
                       style: const TextStyle(
                         color: _P.orange,
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-
-            const Spacer(),
+            const SizedBox(height: 2),
+            // REMOVE Spacer() — replaced by mainAxisAlignment.center
             FollowButton(
+              onFollowSuccess: () {
+                SoundPlayer().FollowSound();
+              },
               targetUserId: widget.user.userId,
               initialFollowStatus: _isFollowing,
             ),
@@ -287,7 +328,8 @@ class _UserCardState extends State<_UserCard> {
 
 class _Avatar extends StatelessWidget {
   final SuggestedUser user;
-  const _Avatar({required this.user});
+  final double radius;
+  const _Avatar({required this.user, this.radius = 28});
 
   String get _initials {
     final parts = user.displayName.trim().split(' ');
@@ -313,7 +355,7 @@ class _Avatar extends StatelessWidget {
         ],
       ),
       child: CircleAvatar(
-        radius: 20,
+        radius: radius,
         backgroundColor: Colors.white,
         backgroundImage: user.hasAvatar ? NetworkImage(user.avatar!) : null,
         child:

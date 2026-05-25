@@ -76,12 +76,17 @@ class UserProfileData {
     final posts =
         rawPosts
             .whereType<Map<String, dynamic>>()
+            // .map((p) {
+            //   try {
+            //     return FeedContent.fromNewApiPost(p);
+            //   } catch (_) {
+            //     return null;
+            //   }
+            // })
             .map((p) {
-              try {
-                return FeedContent.fromNewApiPost(p);
-              } catch (_) {
-                return null;
-              }
+              // If the item has a 'video' field, it's a reel
+              if (p['video'] != null) p['type'] = 'reel';
+              return FeedContent.fromNewApiPost(p);
             })
             .whereType<FeedContent>()
             .toList();
@@ -522,11 +527,18 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
     super.initState();
     tabController = TabController(length: 2, vsync: this);
     countsNotifier = ValueNotifier((followers: 0, following: 0));
+    tabController.addListener(_onTabChanged);
     loadProfile();
+  }
+
+  void _onTabChanged() {
+    if (tabController.indexIsChanging) return;
+    AutoPlayVideoWidgetState.pauseAllAutoPlayVideos();
   }
 
   @override
   void dispose() {
+    tabController.removeListener(_onTabChanged);
     tabController.dispose();
     scrollController.dispose();
     countsNotifier.dispose();
@@ -995,6 +1007,9 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
         onFollowToggled: (isFollowed) {
           if (!mounted) return;
           setState(() => content.isFollowed = isFollowed);
+        },
+        onDeleted: () {
+          if (mounted) setState(() => contents.remove(content));
         },
       ),
     );

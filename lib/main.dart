@@ -361,6 +361,7 @@ import 'package:innovator/Innovator/screens/Likes/hive_reaction_queue.dart';
 import 'package:innovator/Innovator/screens/Splash_Screen/splash_screen.dart';
 import 'package:innovator/Innovator/services/fcm_services.dart';
 import 'package:innovator/Innovator/services/notification_navigation_service.dart'; // ← NEW
+import 'package:innovator/Innovator/utils/routing.dart';
 import 'package:innovator/KMS/screens/auth/login_screen.dart';
 import 'package:innovator/KMS/screens/dashboard/admin_dashboard_screen.dart';
 import 'package:innovator/KMS/screens/dashboard/teacher_dashboard_screen.dart';
@@ -651,6 +652,9 @@ class _InnovatorHomePageState extends ConsumerState<InnovatorHomePage>
     mq = MediaQuery.of(context).size;
 
     return GetMaterialApp(
+      navigatorObservers: [
+        routeObserver,
+      ], // ← NEW: Add route observer for navigation tracking
       navigatorKey: navigatorKey,
       home: SplashScreen(),
       routes: {

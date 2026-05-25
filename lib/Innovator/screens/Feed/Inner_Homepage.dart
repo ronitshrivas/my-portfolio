@@ -18,6 +18,7 @@ import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/full_screen_im
 import 'package:innovator/Innovator/screens/Feed/facebook_video_widget.dart';
 import 'package:innovator/Innovator/screens/Likes/glow_bulb_button.dart';
 import 'package:innovator/Innovator/screens/chatrrom/screen/chatlistscreen.dart';
+import 'package:innovator/Innovator/utils/routing.dart';
 import 'package:innovator/Innovator/widget/CustomizeFAB.dart';
 import 'package:innovator/Innovator/widget/repost_button.dart';
 import 'package:innovator/Innovator/screens/Feed/Repost/repost_list_screen.dart';
@@ -2420,7 +2421,6 @@ class _FeedItemState extends State<FeedItem>
       builder: (_) => const _DeleteLoadingDialog(),
     );
 
-    // ── Route to reel or post endpoint ────────────────────────────────────
     final bool success;
     if (isReel) {
       success = await ApiService.deleteReel(
@@ -2480,7 +2480,7 @@ class _FeedItemState extends State<FeedItem>
               ),
             ],
           ),
-          backgroundColor: Colors.red.shade600,
+          backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -3312,7 +3312,7 @@ class AutoPlayVideoWidget extends StatefulWidget {
 }
 
 class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
-    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
   VideoPlayerController? _controller;
   bool _initialized = false;
   bool _isMuted = true;
@@ -3376,6 +3376,31 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _activeVideos[videoId] = this;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void didPushNext() {
+    // Pause when any screen is pushed on top of the feed
+    _controller?.pause();
+
+    _safeSetState(() => _isPlaying = false);
+    AutoPlayVideoWidgetState.pauseAllAutoPlayVideos();
+  }
+
+  @override
+  void didPopNext() {
+    // Resume when returning to feed
+    if (_initialized && _controller != null) {
+      _controller?.play();
+      _safeSetState(() => _isPlaying = true);
+    }
   }
 
   void _initializeVideoPlayer() {
@@ -3520,6 +3545,7 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _disposed = true;
     _activeVideos.remove(videoId);
     _initTimer?.cancel();
@@ -3529,8 +3555,24 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
     super.dispose();
   }
 
+  // void _openFullscreen() {
+  //   if (!mounted || _controller == null) return;
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder:
+  //           (_) => FullscreenVideoPage(
+  //             url: widget.url,
+  //             thumbnail: widget.thumbnailUrl,
+  //           ),
+  //     ),
+  //   );
+  // }
+
   void _openFullscreen() {
     if (!mounted || _controller == null) return;
+    _controller!.pause(); // ← pause inline first
+    _safeSetState(() => _isPlaying = false);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -3540,7 +3582,13 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
               thumbnail: widget.thumbnailUrl,
             ),
       ),
-    );
+    ).then((_) {
+      // Resume inline when user returns from fullscreen
+      if (mounted && !_disposed && _initialized && _controller != null) {
+        _controller!.play();
+        _safeSetState(() => _isPlaying = true);
+      }
+    });
   }
 
   void _toggleMute() {

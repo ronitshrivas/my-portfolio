@@ -22,7 +22,7 @@ class _reeactionsheetState extends State<reeactionsheet> {
   bool _isLoading = true;
 
   final Map<String, String> _emojiMap = {
-    'like': '�',
+    'like': '💡',
     'love': '❤️',
     'haha': '😂',
     'wow': '😮',

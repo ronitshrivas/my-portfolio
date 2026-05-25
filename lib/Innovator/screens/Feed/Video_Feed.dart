@@ -2118,6 +2118,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:innovator/Innovator/utils/routing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:innovator/Innovator/App_data/App_data.dart';
@@ -2518,7 +2519,7 @@ class ReelsScreen extends ConsumerStatefulWidget {
 }
 
 class _ReelsScreenState extends ConsumerState<ReelsScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   late final PageController _pageCtrl;
 
   int _currentPage = 0;
@@ -2539,7 +2540,27 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  // ADD these two methods:
+  @override
+  void didPushNext() {
+    // Another screen pushed on top → pause immediately
+    ReelsPlayer.pause(_slots.curSlot);
+  }
+
+  @override
+  void didPopNext() {
+    // Returned back to reels → resume
+    ReelsPlayer.play(_slots.curSlot);
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     ReelsPlayer.releaseAll();
     _pageCtrl.dispose();

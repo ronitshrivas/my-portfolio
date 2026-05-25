@@ -17,9 +17,11 @@ import 'package:innovator/Innovator/screens/Feed/specific_video_feed.dart';
 import 'package:innovator/Innovator/screens/Follow/follow_Button.dart';
 import 'package:innovator/Innovator/screens/Profile/profile_page.dart';
 import 'package:innovator/Innovator/screens/chatrrom/screen/chatlistscreen.dart';
+import 'package:innovator/Innovator/screens/chatrrom/sound/soundplayer.dart';
 import 'package:innovator/Innovator/screens/comment/comment_screen.dart';
 import 'package:innovator/Innovator/screens/show_Specific_Profile/show_Specific_followers.dart';
 import 'package:innovator/Innovator/controllers/user_controller.dart';
+import 'package:innovator/Innovator/screens/suggested_users/suggested_user_screen.dart';
 import 'package:innovator/Innovator/widget/CustomizeFAB.dart';
 import 'dart:developer' as developer;
 
@@ -102,12 +104,18 @@ class _SpecificUserProfilePageState
         _scrollToPost(widget.scrollToPostId!);
       }
     });
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    AutoPlayVideoWidgetState.pauseAllAutoPlayVideos();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-
+    _tabController.removeListener(_onTabChanged);
     _animationController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -118,8 +126,7 @@ class _SpecificUserProfilePageState
       return ListView.builder(
         itemCount: 2,
         padding: EdgeInsets.zero,
-        physics:
-            const NeverScrollableScrollPhysics(), // ← outer scroll drives it
+        physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
         itemBuilder: (_, __) => const PostCardSkeleton(),
       );
@@ -566,6 +573,10 @@ class _SpecificUserProfilePageState
                           SliverToBoxAdapter(
                             child: _buildProfileStats(profileData),
                           ),
+
+                          SliverToBoxAdapter(
+                            child: SuggestedUsersSection(horizontal: true),
+                          ),
                           SliverToBoxAdapter(
                             child: _buildPersonalInfo(profileData),
                           ),
@@ -793,8 +804,10 @@ class _SpecificUserProfilePageState
                         profileData['id']?.toString() ?? widget.userId,
                     initialFollowStatus:
                         profileData['is_followed'] as bool? ?? false,
-                    onFollowSuccess: () => _refreshProfile(),
-                    onUnfollowSuccess: () => _refreshProfile(),
+                    onFollowSuccess: () {
+                      SoundPlayer().FollowSound();
+                    },
+                    // onUnfollowSuccess: () => _refreshProfile(),
                   ),
                 ],
               ],
@@ -1026,6 +1039,7 @@ class _SpecificUserProfilePageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // SuggestedUsersSection(),
           Row(
             children: [
               Container(

@@ -7,8 +7,6 @@ import 'package:innovator/Innovator/constant/app_colors.dart';
 import 'package:innovator/Innovator/models/Feed_Content_Model.dart';
 import 'package:innovator/Innovator/screens/Feed/Inner_Homepage.dart';
 
-// ─── Service ──────────────────────────────────────────────────────────────────
-
 class MyReelsService {
   static const String _base = 'http://36.253.137.34:8005';
 
@@ -41,7 +39,10 @@ class MyReelsService {
       final results =
           (body['results'] as List<dynamic>? ?? [])
               .whereType<Map<String, dynamic>>()
-              .map((j) => FeedContent.fromNewApiPost(j))
+              .map((j) {
+                j['type'] = 'reel'; // ← inject type before parsing
+                return FeedContent.fromNewApiPost(j);
+              })
               .where((c) => c.id.isNotEmpty)
               .toList();
       final next = body['next']?.toString();
@@ -51,8 +52,6 @@ class MyReelsService {
   }
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
 class MyReelsScreen extends StatefulWidget {
   final String userId;
   const MyReelsScreen({Key? key, required this.userId}) : super(key: key);
@@ -61,7 +60,7 @@ class MyReelsScreen extends StatefulWidget {
   State<MyReelsScreen> createState() => _MyReelsScreenState();
 }
 
-class _MyReelsScreenState extends State<MyReelsScreen> {
+class _MyReelsScreenState extends State<MyReelsScreen> with RouteAware {
   final List<FeedContent> _reels = [];
   final ScrollController _scroll = ScrollController();
   final Map<String, bool> _reactionState = {};
@@ -251,8 +250,6 @@ class _MyReelsScreenState extends State<MyReelsScreen> {
     );
   }
 }
-
-// ─── Shimmer skeleton (mirrors _PostSkeleton from Inner_Homepage) ─────────────
 
 class _ShimmerReelCard extends StatefulWidget {
   final bool showMedia;

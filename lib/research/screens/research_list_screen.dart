@@ -377,6 +377,13 @@ class SearchFilterBar extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 8),
+
+                PaperFilterChip(
+                  label: 'Upload',
+                  selected: false,
+                  onTap: () => UploadResearchPaperSheet.show(context),
+                ),
+                const SizedBox(width: 8),
                 PaperFilterChip(
                   label: 'Free',
                   selected: selType == 'free',
@@ -409,11 +416,6 @@ class SearchFilterBar extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(width: 8),
-                PaperFilterChip(
-                  label: 'Upload',
-                  selected: false,
-                  onTap: () => UploadResearchPaperSheet.show(context),
-                ),
               ],
             ),
           ),
