@@ -583,12 +583,20 @@ class MyEarningsScreen extends StatelessWidget {
                   color: Color.fromRGBO(255, 255, 255, 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.arrow_back_ios,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
             title: const Text(
               'My Earnings',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             centerTitle: true,
           ),
@@ -606,6 +614,7 @@ class MyEarningsScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
+                    const SizedBox(height: 16),
                     const StatsRow(),
                     const SizedBox(height: 16),
                     const EarningsChartCard(),
@@ -638,7 +647,11 @@ class AtmEarningsCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
-          BoxShadow(color: Color(0x3D185FA5), blurRadius: 24, offset: Offset(0, 8)),
+          BoxShadow(
+            color: Color(0x3D185FA5),
+            blurRadius: 24,
+            offset: Offset(0, 8),
+          ),
         ],
       ),
       child: Stack(
@@ -683,22 +696,37 @@ class AtmEarningsCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Center(
-                        child: Icon(Icons.credit_card, color: Colors.white, size: 16),
+                        child: Icon(
+                          Icons.credit_card,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Color.fromRGBO(255, 255, 255, 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.trending_up_rounded, size: 12, color: Colors.white),
+                          Icon(
+                            Icons.trending_up_rounded,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             '+8.4% this month',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
                         ],
                       ),
@@ -739,7 +767,11 @@ class AtmEarningsCard extends StatelessWidget {
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.account_balance_wallet_rounded, size: 16, color: _kBlue),
+                              Icon(
+                                Icons.account_balance_wallet_rounded,
+                                size: 16,
+                                color: _kBlue,
+                              ),
                               SizedBox(width: 6),
                               Text(
                                 'Withdraw to Wallet',
@@ -756,7 +788,7 @@ class AtmEarningsCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 3),
                 Row(
                   children: [
                     Text(
@@ -790,7 +822,11 @@ class StatsRow extends StatelessWidget {
         color: _kCard,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-          BoxShadow(color: Color(0x12000000), blurRadius: 14, offset: Offset(0, 5)),
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
         ],
       ),
       child: const Row(
@@ -848,17 +884,28 @@ class EarningStatCard extends StatelessWidget {
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: _kText,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 3),
-          Text(label, style: const TextStyle(fontSize: 10, color: _kTextMuted), textAlign: TextAlign.center),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: _kTextMuted),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -885,12 +932,33 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
   int? _hoveredIndex;
 
   final List<double> monthlyData = const [
-    800, 1400, 1100, 2200, 1800, 2800, 3200, 2600, 3800, 4200, 5100, 6200,
+    800,
+    1400,
+    1100,
+    2200,
+    1800,
+    2800,
+    3200,
+    2600,
+    3800,
+    4200,
+    5100,
+    6200,
   ];
 
   final List<String> months = const [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -901,7 +969,11 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
         color: _kCard,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-          BoxShadow(color: Color(0x12000000), blurRadius: 14, offset: Offset(0, 5)),
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
         ],
       ),
       child: Column(
@@ -911,11 +983,18 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
             children: [
               const Text(
                 'Monthly Earnings',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kText),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: _kText,
+                ),
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: _kSurface,
                   borderRadius: BorderRadius.circular(8),
@@ -923,7 +1002,11 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
                 ),
                 child: const Text(
                   '2026',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _kText,
+                  ),
                 ),
               ),
             ],
@@ -931,7 +1014,10 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
           const SizedBox(height: 4),
           Text(
             'NPR 6,200 peak in December',
-            style: TextStyle(fontSize: 12, color: Color.fromRGBO(34, 160, 91, 1)),
+            style: TextStyle(
+              fontSize: 12,
+              color: Color.fromRGBO(34, 160, 91, 1),
+            ),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -943,7 +1029,10 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
                 final localPos = details.localPosition;
                 final chartWidth = box.size.width - 32;
                 final step = chartWidth / (monthlyData.length - 1);
-                final index = (localPos.dx / step).round().clamp(0, monthlyData.length - 1);
+                final index = (localPos.dx / step).round().clamp(
+                  0,
+                  monthlyData.length - 1,
+                );
                 setState(() => _hoveredIndex = index);
               },
               child: CustomPaint(
@@ -967,14 +1056,21 @@ class _EarningsChartCardState extends State<EarningsChartCard> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEBF3FF),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '${months[_hoveredIndex!]}  NPR ${NumberFormat('#,###').format(monthlyData[_hoveredIndex!].toInt())}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kBlue),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _kBlue,
+                    ),
                   ),
                 ),
               ],
@@ -1013,7 +1109,8 @@ class EarningsLinePainter extends CustomPainter {
     final double minValue = data.reduce(min);
     final double range = maxValue - minValue == 0 ? 1 : maxValue - minValue;
 
-    double xStep = (data.length > 1) ? size.width / (data.length - 1) : size.width;
+    double xStep =
+        (data.length > 1) ? size.width / (data.length - 1) : size.width;
 
     Offset getPoint(int i) {
       final x = i * xStep;
@@ -1038,27 +1135,30 @@ class EarningsLinePainter extends CustomPainter {
     fillPath.lineTo(0, topPadding + chartHeight);
     fillPath.close();
 
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: gradientColors,
-      ).createShader(Rect.fromLTWH(0, topPadding, size.width, chartHeight));
+    final fillPaint =
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: gradientColors,
+          ).createShader(Rect.fromLTWH(0, topPadding, size.width, chartHeight));
 
     canvas.drawPath(fillPath, fillPaint);
 
-    final linePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final linePaint =
+        Paint()
+          ..color = lineColor
+          ..strokeWidth = 2.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
 
     canvas.drawPath(path, linePaint);
 
-    final gridPaint = Paint()
-      ..color = const Color(0xFFE8EBF0)
-      ..strokeWidth = 1;
+    final gridPaint =
+        Paint()
+          ..color = const Color(0xFFE8EBF0)
+          ..strokeWidth = 1;
 
     for (int i = 1; i <= 3; i++) {
       final y = topPadding + chartHeight * (i / 4);
@@ -1070,17 +1170,40 @@ class EarningsLinePainter extends CustomPainter {
       final isHighlighted = highlightIndex == i;
 
       if (isHighlighted) {
-        final highlightLinePaint = Paint()
-          ..color = const Color(0xFFCCDCF0)
-          ..strokeWidth = 1;
-        canvas.drawLine(Offset(pt.dx, topPadding), Offset(pt.dx, topPadding + chartHeight), highlightLinePaint);
+        final highlightLinePaint =
+            Paint()
+              ..color = const Color(0xFFCCDCF0)
+              ..strokeWidth = 1;
+        canvas.drawLine(
+          Offset(pt.dx, topPadding),
+          Offset(pt.dx, topPadding + chartHeight),
+          highlightLinePaint,
+        );
 
-        canvas.drawCircle(pt, 7, Paint()..color = Color.fromRGBO(24, 95, 165, 0.2));
+        canvas.drawCircle(
+          pt,
+          7,
+          Paint()..color = Color.fromRGBO(24, 95, 165, 0.2),
+        );
         canvas.drawCircle(pt, 5, Paint()..color = Colors.white);
-        canvas.drawCircle(pt, 5, Paint()..color = lineColor..style = PaintingStyle.stroke..strokeWidth = 2.5);
+        canvas.drawCircle(
+          pt,
+          5,
+          Paint()
+            ..color = lineColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5,
+        );
       } else if (i % 2 == 0) {
         canvas.drawCircle(pt, 3, Paint()..color = Colors.white);
-        canvas.drawCircle(pt, 3, Paint()..color = lineColor..style = PaintingStyle.stroke..strokeWidth = 1.5);
+        canvas.drawCircle(
+          pt,
+          3,
+          Paint()
+            ..color = lineColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
       }
     }
 
@@ -1154,7 +1277,11 @@ class TransactionListSection extends StatelessWidget {
       children: [
         const Text(
           'Received Payments',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kText),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: _kText,
+          ),
         ),
         const SizedBox(height: 10),
         Container(
@@ -1162,7 +1289,11 @@ class TransactionListSection extends StatelessWidget {
             color: _kCard,
             borderRadius: BorderRadius.circular(16),
             boxShadow: const [
-              BoxShadow(color: Color(0x0C000000), blurRadius: 10, offset: Offset(0, 4)),
+              BoxShadow(
+                color: Color(0x0C000000),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
             ],
           ),
           child: ListView.separated(
@@ -1170,7 +1301,8 @@ class TransactionListSection extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: transactions.length,
             separatorBuilder: (_, __) => const Divider(height: 1, indent: 70),
-            itemBuilder: (_, i) => TransactionTile(transaction: transactions[i]),
+            itemBuilder:
+                (_, i) => TransactionTile(transaction: transactions[i]),
           ),
         ),
       ],
@@ -1210,7 +1342,11 @@ class TransactionTile extends StatelessWidget {
               color: _kGreenSoft,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.arrow_downward_rounded, color: _kGreen, size: 20),
+            child: const Icon(
+              Icons.arrow_downward_rounded,
+              color: _kGreen,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1221,7 +1357,11 @@ class TransactionTile extends StatelessWidget {
                   transaction.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _kText),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _kText,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -1237,7 +1377,11 @@ class TransactionTile extends StatelessWidget {
             children: [
               Text(
                 transaction.amount,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kGreen),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _kGreen,
+                ),
               ),
               const SizedBox(height: 3),
               Container(
@@ -1248,7 +1392,11 @@ class TransactionTile extends StatelessWidget {
                 ),
                 child: const Text(
                   'Received',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kGreen),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: _kGreen,
+                  ),
                 ),
               ),
             ],

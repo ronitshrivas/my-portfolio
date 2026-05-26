@@ -745,7 +745,7 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 cacheExtent: 1200.0,
                 addAutomaticKeepAlives: false,
-                addRepaintBoundaries: false,
+                addRepaintBoundaries: true,
                 itemCount: _calculateTotalItemCount(),
                 itemBuilder: (context, index) => _buildListItem(index),
               ),
@@ -863,6 +863,8 @@ class _FeedItemState extends State<FeedItem>
   late String formattedTimeAgo;
   bool _showComments = false;
   bool _statusNeedsToggle = false;
+  Color _typeColor = Colors.transparent;
+  bool _isOwnContent = false;
 
   final ContentLikeService likeService = ContentLikeService(
     baseUrl: 'http://36.253.137.34:8005',
@@ -876,21 +878,17 @@ class _FeedItemState extends State<FeedItem>
       duration: const Duration(milliseconds: 300),
     );
     formattedTimeAgo = _formatTimeAgo(widget.content.createdAt);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _recordView();
-      // Measure status text once — never again
-      if (widget.content.status.isNotEmpty && mounted) {
-        final tp = TextPainter(
-          text: TextSpan(
-            text: widget.content.status,
-            style: const TextStyle(fontSize: 12.0, fontFamily: 'InterThin'),
-          ),
-          maxLines: _maxLinesCollapsed,
-          textDirection: TextDirection.ltr,
-        )..layout(maxWidth: MediaQuery.of(context).size.width - 32);
-        if (mounted) setState(() => _statusNeedsToggle = tp.didExceedMaxLines);
-      }
-    });
+    _statusNeedsToggle = widget.content.status.length > 120;
+
+    _typeColor = _getTypeColor(widget.content.type);
+
+    try {
+      _isOwnContent = _isAuthorCurrentUser();
+    } catch (_) {
+      _isOwnContent = false;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recordView());
   }
 
   @override
@@ -1047,8 +1045,6 @@ class _FeedItemState extends State<FeedItem>
 
   @override
   Widget build(BuildContext context) {
-    final bool isOwnContent = _isAuthorCurrentUser();
-
     return
     // AnimatedContainer(
     //   duration: const Duration(milliseconds: 200),
@@ -1232,7 +1228,7 @@ class _FeedItemState extends State<FeedItem>
                                   ),
                                 ),
                                 const SizedBox(width: 8.0),
-                                if (!isOwnContent)
+                                if (!_isOwnContent)
                                   GestureDetector(
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () {},
@@ -1304,7 +1300,7 @@ class _FeedItemState extends State<FeedItem>
                           Text(
                             '· ${widget.content.type.toUpperCase()}',
                             style: TextStyle(
-                              color: _getTypeColor(widget.content.type),
+                              color: _typeColor,
                               fontSize: 12.0,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.5,
@@ -1393,23 +1389,19 @@ class _FeedItemState extends State<FeedItem>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    child: _LinkifyText(
-                      text: widget.content.status,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        height: 1.5,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.6,
-                        fontStyle: FontStyle.normal,
-                        fontFamily: 'InterThin',
-                      ),
-                      maxLines: _isExpanded ? null : _maxLinesCollapsed,
-                      overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                  _LinkifyText(
+                    text: widget.content.status,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.5,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.6,
+                      fontStyle: FontStyle.normal,
+                      fontFamily: 'InterThin',
                     ),
+                    maxLines: _isExpanded ? null : _maxLinesCollapsed,
+                    overflow: _isExpanded ? null : TextOverflow.ellipsis,
                   ),
                   if (_statusNeedsToggle) // ← use cached value, no TextPainter in build
                     InkWell(
@@ -1559,37 +1551,30 @@ class _FeedItemState extends State<FeedItem>
             ),
           ),
 
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child:
-                _showComments
-                    ? Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(20.0),
-                          bottomRight: Radius.circular(20.0),
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(16.0),
-                      child: CommentSection(
-                        contentId: widget.content.id,
-                        isReel: widget.content.isReel,
-                        onCommentCountChanged: (delta) {
-                          setState(
-                            () =>
-                                widget.content.comments =
-                                    (widget.content.comments + delta).clamp(
-                                      0,
-                                      999999,
-                                    ),
-                          );
-                        },
-                      ),
-                    )
-                    : const SizedBox.shrink(),
-          ),
+          if (_showComments)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20.0),
+                  bottomRight: Radius.circular(20.0),
+                ),
+              ),
+              padding: const EdgeInsets.all(16.0),
+              child: CommentSection(
+                contentId: widget.content.id,
+                isReel: widget.content.isReel,
+                onCommentCountChanged: (delta) {
+                  setState(
+                    () =>
+                        widget.content.comments =
+                            (widget.content.comments + delta).clamp(0, 999999),
+                  );
+                },
+              ),
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );
@@ -4131,7 +4116,7 @@ class _SaveLoadingDialog extends StatelessWidget {
   }
 }
 
-class _LinkifyText extends StatelessWidget {
+class _LinkifyText extends StatefulWidget {
   final String text;
   final TextStyle? style;
   final int? maxLines;
@@ -4145,7 +4130,26 @@ class _LinkifyText extends StatelessWidget {
   });
 
   @override
+  State<_LinkifyText> createState() => _LinkifyTextState();
+}
+
+class _LinkifyTextState extends State<_LinkifyText> {
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Clear old recognizers before rebuilding
+    for (final r in _recognizers) r.dispose();
+    _recognizers.clear();
+
     final RegExp urlRegExp = RegExp(
       r'(https?:\/\/[^\s]+)',
       caseSensitive: false,
@@ -4159,10 +4163,12 @@ class _LinkifyText extends StatelessWidget {
     final List<_TextMatch> allMatches = [];
 
     allMatches.addAll(
-      urlRegExp.allMatches(text).map((m) => _TextMatch(m, 'url')),
+      urlRegExp.allMatches(widget.text).map((m) => _TextMatch(m, 'url')),
     );
     allMatches.addAll(
-      hashtagRegExp.allMatches(text).map((m) => _TextMatch(m, 'hashtag')),
+      hashtagRegExp
+          .allMatches(widget.text)
+          .map((m) => _TextMatch(m, 'hashtag')),
     );
     allMatches.sort((a, b) => a.match.start.compareTo(b.match.start));
 
@@ -4184,88 +4190,78 @@ class _LinkifyText extends StatelessWidget {
       if (match.start > lastMatchEnd) {
         spans.add(
           TextSpan(
-            text: text.substring(lastMatchEnd, match.start),
-            style: style,
+            text: widget.text.substring(lastMatchEnd, match.start),
+            style: widget.style,
           ),
         );
       }
       final matchText = match.group(0)!;
       if (matchWithType.type == 'url') {
+        final recognizer =
+            TapGestureRecognizer()
+              ..onTap = () async {
+                final uri = Uri.parse(matchText);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              };
+        _recognizers.add(recognizer);
         spans.add(
           TextSpan(
             text: matchText,
-            style:
-                style?.copyWith(
-                  color: Colors.blue.shade600,
-                  decoration: TextDecoration.underline,
-                  fontWeight: FontWeight.w500,
-                ) ??
-                TextStyle(
-                  color: Colors.blue.shade600,
-                  decoration: TextDecoration.underline,
-                  fontWeight: FontWeight.w500,
-                ),
-            recognizer:
-                TapGestureRecognizer()
-                  ..onTap = () async {
-                    final uri = Uri.parse(matchText);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Could not open link')),
-                      );
-                    }
-                  },
+            style: widget.style?.copyWith(
+              color: Colors.blue.shade600,
+              decoration: TextDecoration.underline,
+              fontWeight: FontWeight.w500,
+            ),
+            recognizer: recognizer,
           ),
         );
       } else if (matchWithType.type == 'hashtag') {
+        final recognizer =
+            TapGestureRecognizer()
+              ..onTap = () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Hashtag tapped: $matchText'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              };
+        _recognizers.add(recognizer);
         spans.add(
           TextSpan(
             text: matchText,
-            style:
-                style?.copyWith(
-                  color: Colors.purple.shade600,
-                  fontWeight: FontWeight.w600,
-                  decoration: TextDecoration.none,
-                ) ??
-                TextStyle(
-                  color: Colors.purple.shade600,
-                  fontWeight: FontWeight.w600,
-                  decoration: TextDecoration.none,
-                ),
-            recognizer:
-                TapGestureRecognizer()
-                  ..onTap = () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Hashtag tapped: $matchText'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
+            style: widget.style?.copyWith(
+              color: Colors.purple.shade600,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+            recognizer: recognizer,
           ),
         );
       }
       lastMatchEnd = match.end;
     }
 
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastMatchEnd), style: style));
+    if (lastMatchEnd < widget.text.length) {
+      spans.add(
+        TextSpan(
+          text: widget.text.substring(lastMatchEnd),
+          style: widget.style,
+        ),
+      );
     }
 
     return RichText(
       text: TextSpan(children: spans),
-      maxLines: maxLines,
-      overflow: overflow ?? TextOverflow.clip,
+      maxLines: widget.maxLines,
+      overflow: widget.overflow ?? TextOverflow.clip,
     );
   }
 
-  bool _matchesOverlap(RegExpMatch match1, RegExpMatch match2) =>
-      match1.start < match2.end && match1.end > match2.start;
+  bool _matchesOverlap(RegExpMatch m1, RegExpMatch m2) =>
+      m1.start < m2.end && m1.end > m2.start;
 }
 
 class _TextMatch {
