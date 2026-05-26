@@ -1,10 +1,5 @@
-import 'dart:convert';
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:innovator/Innovator/App_data/App_data.dart';
-import 'package:innovator/Innovator/constant/api_constants.dart';
-import 'package:innovator/Innovator/screens/Feed/Repost/repost_list_screen.dart';
+
 import 'package:innovator/Innovator/screens/Feed/Repost/repost_sheet.dart';
 
 class RepostButton extends StatefulWidget {
@@ -13,6 +8,7 @@ class RepostButton extends StatefulWidget {
   final String content;
   final String? authorAvatar;
   final VoidCallback? onViewReposts;
+  final int initialRepostCount;
 
   const RepostButton({
     required this.postId,
@@ -20,6 +16,7 @@ class RepostButton extends StatefulWidget {
     required this.content,
     this.authorAvatar,
     this.onViewReposts,
+    this.initialRepostCount = 0,
   });
 
   @override
@@ -46,56 +43,13 @@ class _RepostButtonState extends State<RepostButton>
       TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
     ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
 
-    _fetchRepostCount();
+    _repostCount = widget.initialRepostCount;
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _fetchRepostCount() async {
-    if (!mounted) return;
-    setState(() => _isLoadingCount = true);
-
-    try {
-      final token = AppData().accessToken ?? '';
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (token.isNotEmpty) 'Authorization': 'Bearer $token',
-      };
-
-      final uri = Uri.parse(
-        '${ApiConstants.fetchreporstCount}${widget.postId}/reposts-list/',
-      );
-      final response = await http
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        List<dynamic> rawList = [];
-
-        if (decoded is List) {
-          rawList = decoded;
-        } else if (decoded is Map) {
-          rawList =
-              decoded['results'] as List<dynamic>? ??
-              decoded['data'] as List<dynamic>? ??
-              [];
-        }
-
-        if (mounted) {
-          setState(() => _repostCount = rawList.length);
-        }
-      }
-    } catch (e) {
-      developer.log('[RepostButton] Error fetching count: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingCount = false);
-    }
   }
 
   void _onTap() {

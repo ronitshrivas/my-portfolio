@@ -55,6 +55,9 @@ class CachedFeedItem extends HiveObject {
   @HiveField(16)
   final String savedAt; // when we cached this item
 
+  @HiveField(17)
+  int repostCount;
+
   CachedFeedItem({
     required this.id,
     required this.authorId,
@@ -73,5 +76,6 @@ class CachedFeedItem extends HiveObject {
     this.thumbnailUrl,
     this.currentUserReaction,
     required this.savedAt,
+    required this.repostCount,
   });
 }

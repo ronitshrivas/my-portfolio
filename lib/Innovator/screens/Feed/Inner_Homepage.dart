@@ -448,7 +448,7 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
     if (scrollPercentage >= _scrollThreshold) return true;
     if (maxScroll - currentScroll <= _preloadDistance) return true;
     if (scrollPercentage >= 0.85) return true;
-    if (_allContents.length < 20 && scrollPercentage >= 0.7) return true;
+    if (_allContents.length < 20 && scrollPercentage >= 0.9) return true;
     return false;
   }
 
@@ -743,7 +743,9 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
               child: ListView.builder(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
-                cacheExtent: 300.0,
+                cacheExtent: 1200.0,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: false,
                 itemCount: _calculateTotalItemCount(),
                 itemBuilder: (context, index) => _buildListItem(index),
               ),
@@ -796,28 +798,22 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
       child: FeedItem(
         content: content,
         onLikeToggled: (hasReaction) {
-          if (!mounted) return;
-          setState(() {
-            final hadReaction = _reactionState[content.id] ?? content.isLiked;
-            if (hasReaction && !hadReaction) {
-              content.likes = (content.likes + 1).clamp(0, 999999);
-            } else if (!hasReaction && hadReaction) {
-              content.likes = (content.likes - 1).clamp(0, 999999);
-            }
-            content.isLiked = hasReaction;
-            _reactionState[content.id] = hasReaction;
-          });
+          final hadReaction = _reactionState[content.id] ?? content.isLiked;
+          if (hasReaction && !hadReaction) {
+            content.likes = (content.likes + 1).clamp(0, 999999);
+          } else if (!hasReaction && hadReaction) {
+            content.likes = (content.likes - 1).clamp(0, 999999);
+          }
+          content.isLiked = hasReaction;
+          _reactionState[content.id] = hasReaction;
         },
         onFollowToggled: (isFollowed) {
-          if (!mounted) return;
-          setState(() {
-            final authorId = content.author.id;
-            for (final c in _allContents) {
-              if (c.author.id == authorId) {
-                c.isFollowed = isFollowed;
-              }
+          final authorId = content.author.id;
+          for (final c in _allContents) {
+            if (c.author.id == authorId) {
+              c.isFollowed = isFollowed;
             }
-          });
+          }
         },
         onDeleted: () {
           if (mounted) setState(() => _allContents.remove(content));
@@ -866,6 +862,7 @@ class _FeedItemState extends State<FeedItem>
   late AnimationController _controller;
   late String formattedTimeAgo;
   bool _showComments = false;
+  bool _statusNeedsToggle = false;
 
   final ContentLikeService likeService = ContentLikeService(
     baseUrl: 'http://36.253.137.34:8005',
@@ -879,7 +876,21 @@ class _FeedItemState extends State<FeedItem>
       duration: const Duration(milliseconds: 300),
     );
     formattedTimeAgo = _formatTimeAgo(widget.content.createdAt);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _recordView());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recordView();
+      // Measure status text once — never again
+      if (widget.content.status.isNotEmpty && mounted) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: widget.content.status,
+            style: const TextStyle(fontSize: 12.0, fontFamily: 'InterThin'),
+          ),
+          maxLines: _maxLinesCollapsed,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: MediaQuery.of(context).size.width - 32);
+        if (mounted) setState(() => _statusNeedsToggle = tp.didExceedMaxLines);
+      }
+    });
   }
 
   @override
@@ -1038,13 +1049,41 @@ class _FeedItemState extends State<FeedItem>
   Widget build(BuildContext context) {
     final bool isOwnContent = _isAuthorCurrentUser();
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+    return
+    // AnimatedContainer(
+    //   duration: const Duration(milliseconds: 200),
+    //   margin: const EdgeInsets.symmetric(vertical: 5),
+    //   padding: const EdgeInsets.symmetric(horizontal: 8.0),
+    //   decoration: BoxDecoration(
+    //     color: AppColors.whitecolor,
+    //     borderRadius: const BorderRadius.only(
+    //       bottomLeft: Radius.circular(20.0),
+    //       bottomRight: Radius.circular(20.0),
+    //       topLeft: Radius.circular(5.0),
+    //       topRight: Radius.circular(5.0),
+    //     ),
+    //     boxShadow: [
+    //       BoxShadow(
+    //         color: Colors.black.withAlpha(15),
+    //         blurRadius: 20.0,
+    //         offset: const Offset(0, 4),
+    //         spreadRadius: 0,
+    //       ),
+    //       BoxShadow(
+    //         color: Colors.black.withAlpha(15),
+    //         blurRadius: 8.0,
+    //         offset: const Offset(0, 2),
+    //         spreadRadius: 0,
+    //       ),
+    //     ],
+    //   ),
+    Container(
       margin: const EdgeInsets.symmetric(vertical: 5),
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        // ← const now possible
         color: AppColors.whitecolor,
-        borderRadius: const BorderRadius.only(
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(20.0),
           bottomRight: Radius.circular(20.0),
           topLeft: Radius.circular(5.0),
@@ -1052,15 +1091,15 @@ class _FeedItemState extends State<FeedItem>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(15),
+            color: Color(0x0F000000), // ← withAlpha(15) = 0x0F. const-safe.
             blurRadius: 20.0,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.black.withAlpha(15),
+            color: Color(0x0F000000),
             blurRadius: 8.0,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
             spreadRadius: 0,
           ),
         ],
@@ -1147,35 +1186,49 @@ class _FeedItemState extends State<FeedItem>
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                // Flexible(
+                                //   child: LayoutBuilder(
+                                //     builder: (context, constraints) {
+                                //       final nameStyle = const TextStyle(
+                                //         fontWeight: FontWeight.w700,
+                                //         fontSize: 16.0,
+                                //         fontFamily: 'Inter Thin',
+                                //       );
+                                //       final tp = TextPainter(
+                                //         text: TextSpan(
+                                //           text: widget.content.author.name,
+                                //           style: nameStyle,
+                                //         ),
+                                //         maxLines: 1,
+                                //         textDirection: TextDirection.ltr,
+                                //       )..layout(maxWidth: double.infinity);
+                                //       final nameWillOverflow =
+                                //           tp.width > constraints.maxWidth;
+                                //       return Text(
+                                //         widget.content.author.name,
+                                //         style: nameStyle,
+                                //         overflow:
+                                //             nameWillOverflow
+                                //                 ? TextOverflow.ellipsis
+                                //                 : TextOverflow.visible,
+                                //         maxLines: 1,
+                                //         softWrap: false,
+                                //       );
+                                //     },
+                                //   ),
+                                // ),
                                 Flexible(
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final nameStyle = const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16.0,
-                                        fontFamily: 'Inter Thin',
-                                      );
-                                      final tp = TextPainter(
-                                        text: TextSpan(
-                                          text: widget.content.author.name,
-                                          style: nameStyle,
-                                        ),
-                                        maxLines: 1,
-                                        textDirection: TextDirection.ltr,
-                                      )..layout(maxWidth: double.infinity);
-                                      final nameWillOverflow =
-                                          tp.width > constraints.maxWidth;
-                                      return Text(
-                                        widget.content.author.name,
-                                        style: nameStyle,
-                                        overflow:
-                                            nameWillOverflow
-                                                ? TextOverflow.ellipsis
-                                                : TextOverflow.visible,
-                                        maxLines: 1,
-                                        softWrap: false,
-                                      );
-                                    },
+                                  child: Text(
+                                    widget.content.author.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16.0,
+                                      fontFamily: 'Inter Thin',
+                                    ),
+                                    overflow:
+                                        TextOverflow
+                                            .ellipsis, // always ellipsis — no LayoutBuilder needed
+                                    maxLines: 1,
                                   ),
                                 ),
                                 const SizedBox(width: 8.0),
@@ -1275,65 +1328,101 @@ class _FeedItemState extends State<FeedItem>
                 right: 16.0,
                 bottom: widget.content.files.isNotEmpty ? 8.0 : 16.0,
               ),
-              child: Column(
+              child:
+              //  Column(
+              //   crossAxisAlignment: CrossAxisAlignment.start,
+              //   children: [
+              //     LayoutBuilder(
+              //       builder: (context, constraints) {
+              //         final span = TextSpan(
+              //           text: widget.content.status,
+              //           style: const TextStyle(
+              //             fontSize: 12.0,
+              //             fontFamily: 'InterThin',
+              //           ),
+              //         );
+              //         final tp = TextPainter(
+              //           text: span,
+              //           maxLines: _maxLinesCollapsed,
+              //           textDirection: TextDirection.ltr,
+              //         )..layout(maxWidth: constraints.maxWidth);
+              //         final needsToggle = tp.didExceedMaxLines;
+              //         return Column(
+              //           crossAxisAlignment: CrossAxisAlignment.start,
+              //           children: [
+              //             AnimatedSize(
+              //               duration: const Duration(milliseconds: 300),
+              //               curve: Curves.easeInOut,
+              //               child: _LinkifyText(
+              //                 text: widget.content.status,
+              //                 style: const TextStyle(
+              //                   fontSize: 13.5,
+              //                   height: 1.5,
+              //                   color: Colors.black,
+              //                   fontWeight: FontWeight.w500,
+              //                   letterSpacing: 0.6,
+              //                   fontStyle: FontStyle.normal,
+              //                   fontFamily: 'InterThin',
+              //                 ),
+              //                 maxLines: _isExpanded ? null : _maxLinesCollapsed,
+              //                 overflow:
+              //                     _isExpanded ? null : TextOverflow.ellipsis,
+              //               ),
+              //             ),
+              //             if (needsToggle)
+              //               InkWell(
+              //                 onTap:
+              //                     () => setState(
+              //                       () => _isExpanded = !_isExpanded,
+              //                     ),
+              //                 child: Text(
+              //                   _isExpanded ? 'See Less' : 'See More',
+              //                   style: TextStyle(
+              //                     color: Colors.blue.shade700,
+              //                     fontSize: 11.0,
+              //                     fontWeight: FontWeight.w600,
+              //                   ),
+              //                 ),
+              //               ),
+              //           ],
+              //         );
+              //       },
+              //     ),
+              //   ],
+              // ),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final span = TextSpan(
-                        text: widget.content.status,
-                        style: const TextStyle(
-                          fontSize: 12.0,
-                          fontFamily: 'InterThin',
-                        ),
-                      );
-                      final tp = TextPainter(
-                        text: span,
-                        maxLines: _maxLinesCollapsed,
-                        textDirection: TextDirection.ltr,
-                      )..layout(maxWidth: constraints.maxWidth);
-                      final needsToggle = tp.didExceedMaxLines;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            child: _LinkifyText(
-                              text: widget.content.status,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                height: 1.5,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.6,
-                                fontStyle: FontStyle.normal,
-                                fontFamily: 'InterThin',
-                              ),
-                              maxLines: _isExpanded ? null : _maxLinesCollapsed,
-                              overflow:
-                                  _isExpanded ? null : TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (needsToggle)
-                            InkWell(
-                              onTap:
-                                  () => setState(
-                                    () => _isExpanded = !_isExpanded,
-                                  ),
-                              child: Text(
-                                _isExpanded ? 'See Less' : 'See More',
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontSize: 11.0,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: _LinkifyText(
+                      text: widget.content.status,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.5,
+                        color: Colors.black,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.6,
+                        fontStyle: FontStyle.normal,
+                        fontFamily: 'InterThin',
+                      ),
+                      maxLines: _isExpanded ? null : _maxLinesCollapsed,
+                      overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                    ),
                   ),
+                  if (_statusNeedsToggle) // ← use cached value, no TextPainter in build
+                    InkWell(
+                      onTap: () => setState(() => _isExpanded = !_isExpanded),
+                      child: Text(
+                        _isExpanded ? 'See Less' : 'See More',
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 11.0,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1453,6 +1542,7 @@ class _FeedItemState extends State<FeedItem>
                           ),
                         );
                       },
+                      initialRepostCount: widget.content.repostCount,
                     ),
                   ],
                 ),
@@ -1543,9 +1633,10 @@ class _FeedItemState extends State<FeedItem>
         return _buildFacebookImageGrid([fileUrl]);
       if (FileTypeHelper.isVideo(fileUrl)) {
         return FacebookVideoWidget(
+          key: ValueKey('video_${widget.content.id}'),
           url: fileUrl,
           thumbnailUrl: widget.content.thumbnailUrl,
-          startMuted: true,
+          startMuted: false,
           looping: true,
         );
       }
@@ -1684,21 +1775,7 @@ class _FeedItemState extends State<FeedItem>
         fit: BoxFit.contain,
         width: double.infinity,
         memCacheWidth: (MediaQuery.of(context).size.width * 1.5).toInt(),
-        placeholder:
-            (_, __) => Container(
-              height: 280,
-              color: Colors.grey[200],
-              child: Center(
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Image.asset(
-                    'animation/IdeaBulb.gif',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            ),
+        placeholder: (_, __) => Container(height: 280, color: Colors.grey[200]),
         errorWidget:
             (_, __, ___) => Container(
               height: 280,
@@ -1726,20 +1803,7 @@ class _FeedItemState extends State<FeedItem>
               imageUrl: url,
               fit: BoxFit.cover,
               filterQuality: FilterQuality.high,
-              placeholder:
-                  (_, __) => Container(
-                    color: Colors.grey[200],
-                    child: Center(
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: Image.asset(
-                          'animation/IdeaBulb.gif',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
+              placeholder: (_, __) => Container(color: Colors.grey[200]),
               errorWidget:
                   (_, __, ___) => Container(
                     color: Colors.grey[200],
@@ -3323,7 +3387,7 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
   static final Map<String, AutoPlayVideoWidgetState> _activeVideos = {};
 
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive => false;
 
   void _safeSetState(VoidCallback fn) {
     if (mounted && !_disposed) {
@@ -3458,6 +3522,7 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
       } else if (visibleFraction < 0.5) {
         _activeVideos.remove(videoId);
         if (_initialized && _controller != null) {
+          _controller!.setVolume(0.0);
           _controller!.pause();
           _controller!.dispose();
           _controller = null;
@@ -3489,8 +3554,8 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final entry in _activeVideos.entries) {
         if (entry.value.mounted && !entry.value._disposed) {
-          entry.value._controller?.pause();
           entry.value._controller?.setVolume(0.0);
+          entry.value._controller?.pause();
           entry.value._safeSetState(() {
             entry.value._isMuted = true;
             entry.value._isPlaying = false;
@@ -3622,17 +3687,18 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
       return CachedNetworkImage(
         imageUrl: widget.thumbnailUrl!,
         fit: BoxFit.cover,
-        placeholder:
-            (_, __) => Center(
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Image.asset(
-                  'animation/IdeaBulb.gif',
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
+        // placeholder:
+        //     (_, __) => Center(
+        //       child: SizedBox(
+        //         width: 40,
+        //         height: 40,
+        //         child: Image.asset(
+        //           'animation/IdeaBulb.gif',
+        //           fit: BoxFit.contain,
+        //         ),
+        //       ),
+        //     ),
+        placeholder: (_, __) => const ColoredBox(color: Colors.black12),
         errorWidget:
             (_, __, ___) => Container(
               color: Colors.grey,
@@ -3642,13 +3708,7 @@ class AutoPlayVideoWidgetState extends State<AutoPlayVideoWidget>
             ),
       );
     }
-    return Center(
-      child: SizedBox(
-        width: 40,
-        height: 40,
-        child: Image.asset('animation/IdeaBulb.gif', fit: BoxFit.contain),
-      ),
-    );
+    return const ColoredBox(color: Colors.black12);
   }
 
   Widget _buildVideoPlayer() {

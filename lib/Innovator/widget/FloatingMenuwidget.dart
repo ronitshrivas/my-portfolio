@@ -124,7 +124,7 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
     super.dispose();
   }
 
-  NavigatorState get _nav => Navigator.of(context, rootNavigator: true);
+  NavigatorState get _nav => Navigator.of(context);
 
   void _toggleMenu() {
     setState(() {

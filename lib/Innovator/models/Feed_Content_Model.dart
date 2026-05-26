@@ -77,10 +77,6 @@ class SharedPostDetails {
       media.where((m) => m.isImage).map((m) => m.file).firstOrNull;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Author
-// ─────────────────────────────────────────────────────────────────────────────
-
 class Author {
   final String id;
   final String name;
@@ -112,10 +108,6 @@ class Author {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FeedContent
-// ─────────────────────────────────────────────────────────────────────────────
-
 class FeedContent {
   final String id;
   final Author author;
@@ -127,6 +119,7 @@ class FeedContent {
   final List<Map<String, dynamic>> optimizedFiles;
   final String? thumbnailUrl;
   int likes;
+  int repostCount;
   bool isLiked;
   String? currentUserReaction;
   int comments;
@@ -136,8 +129,6 @@ class FeedContent {
   final List<Map<String, dynamic>> categoriesDetail;
   final List<String> reactionTypes;
 
-  // ── Repost fields ──────────────────────────────────────────────────────────
-  /// Non-null when this post IS a repost (has `shared_post` field)
   final String? sharedPostId;
   final SharedPostDetails? sharedPostDetails;
   final bool isReel;
@@ -154,6 +145,7 @@ class FeedContent {
     required this.optimizedFiles,
     this.thumbnailUrl,
     required this.likes,
+    required this.repostCount,
     required this.isLiked,
     this.currentUserReaction,
     required this.comments,
@@ -167,7 +159,6 @@ class FeedContent {
     this.isReel = false,
   });
 
-  // ── Legacy factory ─────────────────────────────────────────────────────────
   factory FeedContent.fromJson(Map<String, dynamic> json) {
     if (json.containsKey('user_id') || json.containsKey('username')) {
       return FeedContent.fromNewApiPost(json);
@@ -204,6 +195,7 @@ class FeedContent {
       optimizedFiles: optimizedFiles,
       thumbnailUrl: json['thumbnailUrl']?.toString(),
       likes: (json['likes'] as num?)?.toInt() ?? 0,
+      repostCount: (json['repost_count'] as num?)?.toInt() ?? 0,
       isLiked: json['isLiked'] == true,
       comments: (json['comments_count'] as num?)?.toInt() ?? 0,
       isFollowed: json['isFollowed'] == true,
@@ -218,7 +210,6 @@ class FeedContent {
     );
   }
 
-  // ── New API factory ────────────────────────────────────────────────────────
   factory FeedContent.fromNewApiPost(Map<String, dynamic> post) {
     final id = post['id']?.toString() ?? '';
     final userId = post['user_id']?.toString() ?? '';
@@ -227,7 +218,6 @@ class FeedContent {
         post['avatar'] != null ? _resolveUrl(post['avatar'].toString()) : '';
     final content =
         post['content']?.toString() ?? post['caption']?.toString() ?? '';
-    // ── Categories ──────────────────────────────────────────────────────────
     final rawCategories = post['categories_detail'] as List<dynamic>? ?? [];
     final categoriesDetail =
         rawCategories.whereType<Map<String, dynamic>>().toList();
@@ -237,7 +227,6 @@ class FeedContent {
             .where((n) => n.isNotEmpty)
             .toList();
 
-    // ── Reactions ───────────────────────────────────────────────────────────
     final reactCount =
         (post['reactions_count'] as num?)?.toInt() ??
         (post['like_count'] as num?)?.toInt() ??
@@ -262,7 +251,6 @@ class FeedContent {
       email: '',
     );
 
-    // ── Media (own post media) ───────────────────────────────────────────────
     final files = <String>[];
     final rawMedia = post['media'];
     if (rawMedia is List) {
@@ -319,6 +307,7 @@ class FeedContent {
       sharedPostId: sharedPostId,
       sharedPostDetails: sharedPostDetails,
       isReel: post['type']?.toString() == 'reel',
+      repostCount: (post['repost_count'] as num?)?.toInt() ?? 0,
     );
   }
 

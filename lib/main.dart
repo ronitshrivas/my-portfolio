@@ -383,7 +383,7 @@ void main() async {
   runZonedGuarded(
     () async {
       try {
-        developer.log('App starting...');
+        //developer.log('App starting...');
         WidgetsFlutterBinding.ensureInitialized();
         await Hive.initFlutter();
         await HiveReactionQueue.instance.init();
@@ -399,11 +399,9 @@ void main() async {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
         );
-        developer.log(' Starting UI...');
+
         runApp(ProviderScope(child: InnovatorHomePage()));
-        developer.log('App started successfully');
       } catch (e, stackTrace) {
-        developer.log('Critical error in main: $e\n$stackTrace');
         runApp(const ProviderScope(child: InnovatorHomePage()));
       }
     },

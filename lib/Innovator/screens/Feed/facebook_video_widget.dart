@@ -180,27 +180,19 @@ class _FacebookVideoWidgetState extends State<FacebookVideoWidget>
         }
       } else if (fraction < 0.4) {
         if (_controller != null) {
-          // ── GUARANTEED DISPOSAL ORDER ──────────────────────────────────────
-          // Step 1: Detach our listener — no more _onVideoListener callbacks
           _controller!.removeListener(_onVideoListener);
+
+          // ← ADD THESE TWO LINES — stops audio track before disposal
+          _controller!.setVolume(0.0);
           _controller!.pause();
 
-          // Step 2: Capture controller in local, then NULL out _controller
-          //         and reset flags BEFORE setState so the rebuild sees
-          //         _controller == null and removes every ValueListenableBuilder
-          //         from the tree.
           final VideoPlayerController controllerToDispose = _controller!;
           _controller = null;
           _initialized = false;
           _initStarted = false;
 
-          // Step 3: Rebuild NOW — tree no longer contains any
-          //         ValueListenableBuilder that references the old controller.
           if (mounted && !_disposed) setState(() => _isPlaying = false);
 
-          // Step 4: Dispose AFTER the frame has finished painting.
-          //         At this point all ValueListenableBuilderState children are
-          //         gone, so notifyListeners() inside dispose() is harmless.
           WidgetsBinding.instance.addPostFrameCallback((_) {
             controllerToDispose.dispose();
           });
@@ -217,6 +209,7 @@ class _FacebookVideoWidgetState extends State<FacebookVideoWidget>
           entry.value.mounted &&
           !entry.value._disposed &&
           entry.value._initialized) {
+        entry.value._controller?.setVolume(0.0);
         entry.value._controller?.pause();
         if (entry.value.mounted) {
           // ignore: invalid_use_of_protected_member
@@ -384,7 +377,7 @@ class _FacebookVideoWidgetState extends State<FacebookVideoWidget>
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: _buildProgressBar(),
+                        child: RepaintBoundary(child: _buildProgressBar()),
                       ),
 
                     // ── Mute button always visible bottom-right ───────────

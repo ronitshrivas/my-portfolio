@@ -152,6 +152,7 @@ class FeedCacheService {
       thumbnailUrl: c.thumbnailUrl,
       currentUserReaction: c.currentUserReaction,
       savedAt: savedAt,
+      repostCount: c.repostCount,
     );
   }
 
@@ -180,6 +181,7 @@ class FeedCacheService {
       createdAt: DateTime.tryParse(item.createdAt) ?? DateTime.now(),
       isReel: item.isReel,
       sharedPostId: item.sharedPostId,
+      repostCount: item.repostCount,
     );
   }
 }

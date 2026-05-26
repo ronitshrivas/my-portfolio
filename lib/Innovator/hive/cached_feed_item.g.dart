@@ -34,6 +34,7 @@ class CachedFeedItemAdapter extends TypeAdapter<CachedFeedItem> {
       thumbnailUrl: fields[14] as String?,
       currentUserReaction: fields[15] as String?,
       savedAt: fields[16] as String,
+      repostCount: fields[17] as int,
     );
   }
 
