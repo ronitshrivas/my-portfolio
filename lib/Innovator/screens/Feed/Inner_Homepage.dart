@@ -798,22 +798,28 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
       child: FeedItem(
         content: content,
         onLikeToggled: (hasReaction) {
-          final hadReaction = _reactionState[content.id] ?? content.isLiked;
-          if (hasReaction && !hadReaction) {
-            content.likes = (content.likes + 1).clamp(0, 999999);
-          } else if (!hasReaction && hadReaction) {
-            content.likes = (content.likes - 1).clamp(0, 999999);
-          }
-          content.isLiked = hasReaction;
-          _reactionState[content.id] = hasReaction;
+          if (!mounted) return;
+          setState(() {
+            final hadReaction = _reactionState[content.id] ?? content.isLiked;
+            if (hasReaction && !hadReaction) {
+              content.likes = (content.likes + 1).clamp(0, 999999);
+            } else if (!hasReaction && hadReaction) {
+              content.likes = (content.likes - 1).clamp(0, 999999);
+            }
+            content.isLiked = hasReaction;
+            _reactionState[content.id] = hasReaction;
+          });
         },
         onFollowToggled: (isFollowed) {
-          final authorId = content.author.id;
-          for (final c in _allContents) {
-            if (c.author.id == authorId) {
-              c.isFollowed = isFollowed;
+          if (!mounted) return;
+          setState(() {
+            final authorId = content.author.id;
+            for (final c in _allContents) {
+              if (c.author.id == authorId) {
+                c.isFollowed = isFollowed;
+              }
             }
-          }
+          });
         },
         onDeleted: () {
           if (mounted) setState(() => _allContents.remove(content));
@@ -1174,7 +1180,6 @@ class _FeedItemState extends State<FeedItem>
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ── Name + Follow + More ──────────────────────────────
                       Row(
                         children: [
                           Expanded(

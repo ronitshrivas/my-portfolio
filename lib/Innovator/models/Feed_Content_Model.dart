@@ -128,7 +128,6 @@ class FeedContent {
   final List<String> tags;
   final List<Map<String, dynamic>> categoriesDetail;
   final List<String> reactionTypes;
-
   final String? sharedPostId;
   final SharedPostDetails? sharedPostDetails;
   final bool isReel;
@@ -307,7 +306,10 @@ class FeedContent {
       sharedPostId: sharedPostId,
       sharedPostDetails: sharedPostDetails,
       isReel: post['type']?.toString() == 'reel',
-      repostCount: (post['repost_count'] as num?)?.toInt() ?? 0,
+      repostCount:
+          (post['share_count'] as num?)?.toInt() ??
+          (post['repost_count'] as num?)?.toInt() ??
+          0,
     );
   }
 
