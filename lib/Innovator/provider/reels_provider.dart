@@ -336,13 +336,22 @@ Future<List<ReelsMusicTrack>> _fetchDeezerSearch(
     '$_deezerBase/search?q=${Uri.encodeComponent(query)}'
     '&index=$index&limit=$limit&output=json',
   );
-
   final res = await http.get(uri).timeout(const Duration(seconds: 15));
   if (res.statusCode != 200) return [];
-
   final body = json.decode(res.body) as Map<String, dynamic>;
   final results = (body['data'] as List<dynamic>? ?? []);
+  return results
+      .map((e) => ReelsMusicTrack.fromDeezer(e as Map<String, dynamic>))
+      .where((t) => t.audioUrl.isNotEmpty && t.id.isNotEmpty)
+      .toList();
+}
 
+Future<List<ReelsMusicTrack>> _fetchDeezerChart({int limit = 50}) async {
+  final uri = Uri.parse('$_deezerBase/chart/0/tracks?limit=$limit&output=json');
+  final res = await http.get(uri).timeout(const Duration(seconds: 15));
+  if (res.statusCode != 200) return [];
+  final body = json.decode(res.body) as Map<String, dynamic>;
+  final results = (body['data'] as List<dynamic>? ?? []);
   return results
       .map((e) => ReelsMusicTrack.fromDeezer(e as Map<String, dynamic>))
       .where((t) => t.audioUrl.isNotEmpty && t.id.isNotEmpty)
@@ -353,57 +362,119 @@ Future<List<ReelsMusicTrack>> _fetchDeezerSearch(
 /// Loads a rich multi-language catalog on screen open.
 /// Searches run in parallel for fast loading.
 final reelsMusicProvider = FutureProvider<List<ReelsMusicTrack>>((ref) async {
-  // Multi-language queries — Bollywood, Punjabi, English, Tamil, etc.
+  // ── Queries: Global + South Asian + Nepali ────────────────────────────────
+  // Nepal uses primarily Hindi Bollywood, Nepali, English pop, and
+  // some K-Pop. Queries are ordered by expected popularity in Nepal.
   const queries = [
-    'arijit singh',
+    // ── Nepali (local trending) ───────────────────────────────────────────
+    'nepali songs 2024',
+    'nepali lok dohori',
+    'nepali pop hits',
+    'bartika eam rai',
+    'paul shah nepali',
+    'melina rai nepali',
+    'prakash saput',
+    '1974 AD nepali',
+    'sugam pokhrel',
+    'albatross band nepal',
+    // ── Hindi Bollywood ───────────────────────────────────────────────────
+    'arijit singh 2024',
     'bollywood hits 2024',
-    'ap dhillon',
-    'punjabi songs 2024',
     'atif aslam',
     'jubin nautiyal',
     'neha kakkar',
-    'badshah rap',
+    'vishal mishra',
+    // ── Punjabi ───────────────────────────────────────────────────────────
+    'ap dhillon',
+    'karan aujla 2024',
+    'diljit dosanjh',
+    'shubh punjabi',
+    // ── English Global Pop ────────────────────────────────────────────────
     'dua lipa',
     'the weeknd',
     'taylor swift',
     'ed sheeran',
-    'imran khan amplifier',
-    'anirudh ravichander',
-    'sid sriram',
-    'devi sri prasad',
-    'karan aujla',
-    'shubh punjabi',
+    'charlie puth',
+    // ── Hip-Hop / Rap ─────────────────────────────────────────────────────
     'mc stan',
     'divine hip hop india',
+    'badshah',
+    // ── Tamil / South ─────────────────────────────────────────────────────
+    'anirudh ravichander',
+    'sid sriram',
   ];
 
-  // Run all queries in parallel
   final results = await Future.wait(
     queries.map(
       (q) => _fetchDeezerSearch(
         q,
-        limit: 15,
+        limit: 10,
       ).catchError((_) => <ReelsMusicTrack>[]),
     ),
   );
 
-  // Flatten + deduplicate by id
+  // Also fetch Deezer chart (global trending right now)
+  final chartTracks = await _fetchDeezerChart(
+    limit: 50,
+  ).catchError((_) => <ReelsMusicTrack>[]);
+
+  // Flatten + deduplicate — chart tracks go first (they're most trending)
   final seen = <String>{};
   final all = <ReelsMusicTrack>[];
+
+  // Chart first (most trending)
+  for (final track in chartTracks) {
+    if (seen.add(track.id)) all.add(track);
+  }
+  // Then search results
   for (final list in results) {
     for (final track in list) {
-      if (seen.add(track.id)) {
-        all.add(track);
-      }
+      if (seen.add(track.id)) all.add(track);
     }
   }
 
   return all;
 });
 
-// ─── Live Search Provider ─────────────────────────────────────────────────────
-/// Real-time search as user types in the music screen.
-/// Pass the search query string as the family argument.
+final reelsTrendingProvider = FutureProvider<List<ReelsMusicTrack>>((
+  ref,
+) async {
+  return _fetchDeezerChart(limit: 100).catchError((_) => <ReelsMusicTrack>[]);
+});
+
+final reelsNepaliProvider = FutureProvider<List<ReelsMusicTrack>>((ref) async {
+  const nepaliQueries = [
+    'nepali songs',
+    'nepali pop',
+    'bartika eam rai',
+    'paul shah',
+    'melina rai',
+    'sugam pokhrel',
+    'prakash saput',
+    '1974 AD',
+    'albatross nepal',
+    'loot nepali movie',
+    'kabaddi nepali',
+    'nepali lok',
+  ];
+  final results = await Future.wait(
+    nepaliQueries.map(
+      (q) => _fetchDeezerSearch(
+        q,
+        limit: 12,
+      ).catchError((_) => <ReelsMusicTrack>[]),
+    ),
+  );
+  final seen = <String>{};
+  final all = <ReelsMusicTrack>[];
+  for (final list in results) {
+    for (final track in list) {
+      if (seen.add(track.id)) all.add(track);
+    }
+  }
+  return all;
+});
+
 final reelsMusicSearchProvider =
     FutureProvider.family<List<ReelsMusicTrack>, String>((ref, query) async {
       if (query.trim().isEmpty) {
@@ -411,8 +482,6 @@ final reelsMusicSearchProvider =
       }
       return _fetchDeezerSearch(query.trim(), limit: 30);
     });
-
-// ─── Filter Presets ───────────────────────────────────────────────────────────
 
 class ReelFilter {
   final String name;

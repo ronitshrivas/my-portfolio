@@ -15,6 +15,7 @@ import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/full_screen_im
 import 'package:innovator/Innovator/screens/Feed/specific_video_feed.dart';
 import 'package:innovator/Innovator/screens/Follow/follow_Button.dart';
 import 'package:innovator/Innovator/screens/Profile/Edit_Profile.dart';
+import 'package:innovator/Innovator/screens/Profile/cv_screen.dart';
 import 'package:innovator/Innovator/screens/SHow_Specific_Profile/Show_Specific_Profile.dart';
 import 'package:innovator/Innovator/screens/chatrrom/screen/chatlistscreen.dart';
 import 'package:innovator/Innovator/utils/Drawer/custom_drawer.dart';
@@ -1263,6 +1264,18 @@ class ProfileOptionsSheet extends StatelessWidget {
                                 profile: profile,
                                 formatDate: formatDate,
                               ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    buildOptionTile(
+                      context,
+                      icon: Icons.description_outlined,
+                      label: 'Make a CV',
+                      onTap: () {
+                        Navigator.of(context).pop(); // close the options sheet
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const CvScreen()),
                         );
                       },
                     ),

@@ -938,7 +938,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
                         maxLines: 8,
                         minLines: 3,
                         decoration: InputDecoration(
-                          hintText: "What's on your mind?",
+                          hintText: "Describe your Learnings in Brief ? ",
                           hintStyle: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: 18,
