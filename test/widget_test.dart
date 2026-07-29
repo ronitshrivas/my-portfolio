@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
- 
+
 import 'package:innovator/main.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // OPTION 1: If InnovatorHomePage requires a String title
     await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          home: InnovatorHomePage(),
-        ),
-      ),
+      ProviderScope(child: MaterialApp(home: InnovatorHomePage())),
     );
 
     // OPTION 2: If InnovatorHomePage requires named parameters
@@ -109,7 +105,7 @@ void main() {
 
     // Find and interact with widgets
     // This is more realistic for integration testing
-    
+
     // Example: Test navigation
     // await tester.tap(find.byKey(Key('home_button')));
     // await tester.pumpAndSettle();

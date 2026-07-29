@@ -95,7 +95,8 @@ class FollowService {
     _assertAuth();
 
     final userId = await resolveToUuid(userIdOrUsername);
-    final url = Uri.parse('${ApiConstants.sendFollowrequest}$userId/follow/');
+    // ProfileService: POST /api/users/{id}/follow (toggle, no trailing slash).
+    final url = Uri.parse('${ApiConstants.sendFollowrequest}$userId/follow');
     debugPrint('[FollowService] POST $url');
 
     final response = await http
@@ -134,7 +135,8 @@ class FollowService {
     _assertAuth();
 
     final userId = await resolveToUuid(userIdOrUsername);
-    final url = Uri.parse('${ApiConstants.sendFollowrequest}$userId/unfollow/');
+    // Follow is a single toggle endpoint; unfollow hits the same route.
+    final url = Uri.parse('${ApiConstants.sendFollowrequest}$userId/follow');
     debugPrint('[FollowService] POST $url');
 
     final response = await http

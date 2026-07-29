@@ -1,6 +1,6 @@
 class ResearchApi {
-  // static const String baseUrl = 'http://36.253.137.34:8004/api';
-  static const String baseUrl = 'https://api.meta-tronix.com';
+  // ResearchService (8019) serves paths without an /api prefix.
+  static const String baseUrl = 'http://36.253.137.34:8019';
   static const String getResearchPaper = '$baseUrl/research';
   static String getResearchPaperById(int researchId) =>
       '$baseUrl/research/$researchId';
@@ -8,7 +8,7 @@ class ResearchApi {
   static String paymentInitiate(int paperId) =>
       '$baseUrl/payment/initiate/$paperId';
   static String getLimitedPaper(int page, int limit) =>
-      '$baseUrl/research?$page&$limit';
+      '$baseUrl/research?page=$page&limit=$limit';
 
   // time out
   static const Duration defaultTimeout = Duration(seconds: 30);

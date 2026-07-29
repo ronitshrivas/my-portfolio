@@ -20,6 +20,15 @@ class CommentService {
     };
   }
 
+  // The backend wraps a single comment as { success, message, data: {...} }.
+  // Unwrap to that inner object, falling back to the body itself if it's flat.
+  Map<String, dynamic> _commentPayload(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) return const {};
+    final inner = decoded['data'];
+    return inner is Map<String, dynamic> ? inner : decoded;
+  }
+
   // ── Fetch top-level comments for a post ────────────────────────────────────
   // GET /api/comments/?post=<postId>
   Future<List<Comment>> getComments(String postId, {int page = 0}) async {
@@ -128,9 +137,7 @@ class CommentService {
       '[Comment] POST /api/comments/ → ${response.statusCode}: ${response.body}',
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return Comment.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      return Comment.fromJson(_commentPayload(response.body));
     }
     throw Exception('addComment failed: ${response.statusCode}');
   }
@@ -148,9 +155,7 @@ class CommentService {
       '[Comment] POST /api/comments/ → ${response.statusCode}: ${response.body}',
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return Comment.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      return Comment.fromJson(_commentPayload(response.body));
     }
     throw Exception('addComment failed: ${response.statusCode}');
   }
@@ -170,9 +175,7 @@ class CommentService {
       '[Comment] POST /api/replies/ → ${response.statusCode}: ${response.body}',
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return Comment.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      return Comment.fromJson(_commentPayload(response.body));
     }
     throw Exception('addReply failed: ${response.statusCode}');
   }
@@ -190,9 +193,7 @@ class CommentService {
     );
     log('[Comment] PATCH /api/comments/$commentId/ → ${response.statusCode}');
     if (response.statusCode == 200) {
-      return Comment.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      return Comment.fromJson(_commentPayload(response.body));
     }
     throw Exception('updateComment failed: ${response.statusCode}');
   }
@@ -210,9 +211,7 @@ class CommentService {
     );
     log('[Comment] PATCH /api/replies/$replyId/ → ${response.statusCode}');
     if (response.statusCode == 200) {
-      return Comment.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      return Comment.fromJson(_commentPayload(response.body));
     }
     throw Exception('updateReply failed: ${response.statusCode}');
   }

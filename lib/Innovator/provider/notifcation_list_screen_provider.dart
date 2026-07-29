@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:innovator/Innovator/App_data/App_data.dart';
 import 'package:innovator/Innovator/Notification/Notification_Listscreen.dart';
 
-const String _kNotifBaseUrl = 'http://36.253.137.34:8005';
+const String _kNotifBaseUrl = 'http://36.253.137.34:8012';
 
 class NotificationState {
   final List<NotificationModel> notifications;

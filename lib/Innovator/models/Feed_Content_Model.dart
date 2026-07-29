@@ -1,8 +1,19 @@
-const String _kBaseUrl = 'http://36.253.137.34:8005';
+const String _kBaseUrl = 'http://36.253.137.34:8012';
 
 String _resolveUrl(String? path) {
   if (path == null || path.isEmpty) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  // The backend may embed an absolute URL pointing at the gateway port (8005),
+  // which is not served. Re-host any absolute media URL onto the live feed
+  // host so images load; forward everything else through the feed host.
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    final uri = Uri.tryParse(path);
+    if (uri != null && uri.host == '36.253.137.34' && uri.port != 8012) {
+      final tail = uri.path.startsWith('/') ? uri.path : '/${uri.path}';
+      final query = uri.hasQuery ? '?${uri.query}' : '';
+      return '$_kBaseUrl$tail$query';
+    }
+    return path;
+  }
   return '$_kBaseUrl${path.startsWith('/') ? '' : '/'}$path';
 }
 

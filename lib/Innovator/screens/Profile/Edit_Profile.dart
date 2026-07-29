@@ -396,7 +396,7 @@ class EditProfileScreenState extends ConsumerState<EditProfileScreen>
         if (v != null) body[key] = v;
       }
 
-      addIfFilled('phone_number', phoneCtrl.text.trim());
+      addIfFilled('phone', phoneCtrl.text.trim());
       addIfFilled('address', addressCtrl.text.trim());
       addIfFilled('bio', bioCtrl.text.trim());
       addIfFilled('education', educationCtrl.text.trim());

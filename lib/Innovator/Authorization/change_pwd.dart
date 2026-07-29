@@ -7,6 +7,7 @@ import 'package:innovator/Innovator/App_data/App_data.dart';
 import 'package:innovator/Innovator/Authorization/Login.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 
 enum CharacterMood { idle, typing, thinking, happy, angry, sad }
 
@@ -50,8 +51,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
   late Animation<double> _happyJump;
   late Animation<double> _thinkBob;
 
-  static const _orange = Color.fromRGBO(244, 135, 6, 1);
-  static const _orangeLight = Color(0xFFFFF3E0);
+  static const _orange = BrandColors.secondarySurface;
+  static const _orangeLight = Color(0xFFEAF0F7);
   static const _bg = Colors.white;
   static const _white = Colors.white;
   static const _textDark = Color(0xFF1A1A1A);
@@ -950,7 +951,7 @@ class _PersonPainter extends CustomPainter {
   static const _skin = Color(0xFFFFD5B0);
   static const _skinDark = Color(0xFFE8A87C);
   static const _hair = Color(0xFF3E2723);
-  static const _shirtTop = Color.fromRGBO(244, 135, 6, 1);
+  static const _shirtTop = BrandColors.secondarySurface;
   static const _shirtBot = Color(0xFFE65100);
   static const _pants = Color(0xFF37474F);
   static const _pantsDark = Color(0xFF263238);

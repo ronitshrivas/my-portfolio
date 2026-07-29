@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:innovator/Innovator/App_data/App_data.dart';
 import 'package:innovator/Innovator/Authorization/Login.dart';
+import 'package:innovator/Innovator/newui/services/auth_session.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
 import 'package:innovator/Innovator/widget/FloatingMenuwidget.dart';
 import 'package:innovator/innovator_home.dart';
@@ -27,6 +28,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
       // Initialize AppData first
       await AppData().initialize();
+
+      // Mirror Innovator's session into the new UI's AuthSession so its
+      // API calls (chat, search, feed, profile) authenticate on startup.
+      AuthSession.instance.syncFromAppData();
 
       // Check for Firebase Auth state mismatch (happens after reinstall)
       //await _checkAndHandleAuthState();

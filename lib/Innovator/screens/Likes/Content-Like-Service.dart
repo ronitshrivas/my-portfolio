@@ -131,7 +131,7 @@ class ContentLikeService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
+      final data = _reactionPayload(response.body);
       return ReactionResult(
         success: true,
         reactionType: ReactionTypeExtension.fromValue(data['type']?.toString()),
@@ -150,6 +150,16 @@ class ContentLikeService {
       log('[Reaction] Server error ${response.statusCode} — will retry later');
       return const ReactionResult(success: false, shouldDiscard: false);
     }
+  }
+
+  // The backend wraps the reaction as { success, message, data: {...} }.
+  // Unwrap to that inner object, falling back to the body itself if it's flat.
+  Map<String, dynamic> _reactionPayload(String body) {
+    if (body.isEmpty) return const {};
+    final decoded = json.decode(body);
+    if (decoded is! Map<String, dynamic>) return const {};
+    final inner = decoded['data'];
+    return inner is Map<String, dynamic> ? inner : decoded;
   }
 
   Future<ReactionResult> reactReel(String reelId, ReactionType type) async {
@@ -174,7 +184,7 @@ class ContentLikeService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
+      final data = _reactionPayload(response.body);
       return ReactionResult(
         success: true,
         reactionType: ReactionTypeExtension.fromValue(data['type']?.toString()),

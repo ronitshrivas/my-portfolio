@@ -114,7 +114,7 @@
 // // ════════════════════════════════════════════════════════════════════════════
 
 // class ReelsApiService {
-//   static const _base = 'http://36.253.137.34:8005';
+//   static const _base = 'http://36.253.137.34:8012';
 //   static const _reelsUrl = '$_base/api/reels/';
 
 //   static Map<String, String> _headers() {
@@ -817,7 +817,7 @@
 //   OverlayEntry? _reactionOverlay;
 //   final LayerLink _reactionLink = LayerLink();
 //   final ContentLikeService _likeService = ContentLikeService(
-//     baseUrl: 'http://36.253.137.34:8005',
+//     baseUrl: 'http://36.253.137.34:8012',
 //   );
 
 //   @override
@@ -2218,7 +2218,7 @@ class ReelOperationResult {
 }
 
 class ReelsApiService {
-  static const _base = 'http://36.253.137.34:8005';
+  static const _base = 'http://36.253.137.34:8012';
   static const _reelsUrl = '$_base/api/reels/';
 
   static Map<String, String> _headers() {
@@ -2766,7 +2766,7 @@ class _ReelOverlayState extends ConsumerState<_ReelOverlay>
   OverlayEntry? _reactionOverlay;
   final LayerLink _reactionLink = LayerLink();
   final ContentLikeService _likeService = ContentLikeService(
-    baseUrl: 'http://36.253.137.34:8005',
+    baseUrl: 'http://36.253.137.34:8012',
   );
 
   @override

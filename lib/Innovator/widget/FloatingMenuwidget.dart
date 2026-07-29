@@ -1,31 +1,39 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:innovator/Innovator/App_data/App_data.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
-import 'package:innovator/Innovator/provider/notifcation_list_screen_provider.dart';
 import 'package:innovator/Innovator/screens/CreatePost/createpost.dart';
+import 'package:innovator/Innovator/screens/Events/Events.dart';
 import 'package:innovator/Innovator/utils/Drawer/custom_drawer.dart';
 import 'package:innovator/Innovator/Notification/Notification_Listscreen.dart';
 import 'package:innovator/ecommerce/screens/Shop/Shop_Page.dart';
 import 'package:innovator/elearning/screens/course_list_screen.dart';
 import 'package:innovator/innovator_home.dart';
 import 'package:innovator/Innovator/screens/Search/Searchpage.dart';
-import 'package:innovator/research/screens/research_list_screen.dart';
 
 const double _kEdgeThreshold = 80.0;
 
 enum _MenuMode { floating, bottomNav, topNav }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GLOBAL OVERLAY MANAGER
+// Call FloatingMenuOverlay.show(context) ONCE after login/app start.
+// ─────────────────────────────────────────────────────────────────────────────
+
 class FloatingMenuOverlay {
   static OverlayEntry? _entry;
   static bool _isShowing = false;
-
   static void show(BuildContext context) {
     if (_isShowing) return;
     _isShowing = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         final overlay = Overlay.of(context, rootOverlay: true);
+        // FIX: OverlayEntry needs a ProviderScope so ConsumerStatefulWidget
+        // inside it can access Riverpod providers.
         _entry = OverlayEntry(
           builder: (_) => const ProviderScope(child: FloatingMenuWidget()),
         );
@@ -46,6 +54,8 @@ class FloatingMenuOverlay {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FLOATING MENU WIDGET
+// FIX: Changed StatefulWidget → ConsumerStatefulWidget so `ref` is available
+// for passing to SmoothDrawerService.showLeftDrawer(context, ref).
 // ─────────────────────────────────────────────────────────────────────────────
 
 class FloatingMenuWidget extends ConsumerStatefulWidget {
@@ -55,6 +65,7 @@ class FloatingMenuWidget extends ConsumerStatefulWidget {
   ConsumerState<FloatingMenuWidget> createState() => _FloatingMenuWidgetState();
 }
 
+// FIX: Changed State → ConsumerState — this is what gives us `ref`
 class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
     with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
@@ -62,9 +73,12 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
   late Animation<double> _animation;
   double _buttonX = 0;
   double _buttonY = 0;
+  int _unreadNotificationCount = 0;
+  bool _isLoadingNotifications = false;
   int _selectedNavIndex = 0;
   _MenuMode _menuMode = _MenuMode.floating;
 
+  // ── 5 Nav bar items ──────────────────────────────────────────────────────
   static const List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.home, 'label': '', 'action': 'navigate_home'},
     {'icon': Icons.search, 'label': '', 'action': 'view_profile'},
@@ -73,15 +87,12 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
     {'icon': Icons.menu, 'label': '', 'action': 'drawer'},
   ];
 
+  // ── Floating popup icons ─────────────────────────────────────────────────
   final List<Map<String, dynamic>> _topIcons = [
     {'icon': Icons.home, 'name': 'FEED', 'action': 'navigate_home'},
     {'icon': Icons.school, 'name': 'COURSE', 'action': 'open_course'},
     {'icon': Icons.add_a_photo, 'name': 'ADD POST', 'action': 'add_photo'},
-    {
-      'icon': Icons.menu_book_rounded,
-      'name': 'Research Paper',
-      'action': 'show_papers',
-    },
+    {'icon': Icons.developer_mode, 'name': 'Events', 'action': 'show_events'},
   ];
 
   final List<Map<String, dynamic>> _bottomIcons = [
@@ -114,8 +125,40 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
         _buttonY = size.height * 0.5;
       });
     });
-    // NOTE: no more _fetchUnreadNotificationCount() or periodic timer here.
-    // The badge is driven entirely by notificationProvider state.
+    _setupPeriodicRefresh();
+  }
+
+  void _setupPeriodicRefresh() {
+    Future.delayed(const Duration(seconds: 30), () {
+      if (mounted) {
+        _setupPeriodicRefresh();
+      }
+    });
+  }
+
+  Future<void> _fetchUnreadNotificationCount() async {
+    if (_isLoadingNotifications) return;
+    setState(() => _isLoadingNotifications = true);
+    try {
+      final token = AppData().accessToken;
+      if (token == null) return;
+      final url = Uri.parse('http://182.93.94.210:3067/api/v1/notifications');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200 && mounted) {
+        final jsonData = jsonDecode(response.body);
+        final List<dynamic> notifications = jsonData['data']['notifications'];
+        final unreadCount =
+            notifications.where((n) => n['read'] == false).length;
+        setState(() => _unreadNotificationCount = unreadCount);
+      }
+    } catch (e) {
+      developer.log('Error fetching notification count: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingNotifications = false);
+    }
   }
 
   @override
@@ -124,7 +167,7 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
     super.dispose();
   }
 
-  NavigatorState get _nav => Navigator.of(context);
+  NavigatorState get _nav => Navigator.of(context, rootNavigator: true);
 
   void _toggleMenu() {
     setState(() {
@@ -164,6 +207,7 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
   void _onNavBarDragEnd(DraggableDetails details, Size size) {
     final dy = details.offset.dy;
     final dx = details.offset.dx;
+
     if (dy < size.height - _kEdgeThreshold && dy > _kEdgeThreshold) {
       setState(() {
         _menuMode = _MenuMode.floating;
@@ -194,8 +238,8 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
       case 'add_photo':
         _nav.push(MaterialPageRoute(builder: (_) => const CreatePostScreen()));
         break;
-      case 'show_papers':
-        _nav.push(MaterialPageRoute(builder: (_) => ResearchListScreen()));
+      case 'show_events':
+        _nav.push(MaterialPageRoute(builder: (_) => EventsHomePage()));
         break;
       case 'open_shop':
         _nav.push(MaterialPageRoute(builder: (_) => const ShopPage()));
@@ -204,11 +248,15 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
         _nav.push(MaterialPageRoute(builder: (_) => const SearchPage()));
         break;
       case 'notification':
-        _nav.push(
+        setState(() => _unreadNotificationCount = 0);
+        await _nav.push(
           MaterialPageRoute(builder: (_) => const NotificationListScreen()),
         );
         break;
       case 'drawer':
+        // FIX: `ref` is now available because this is a ConsumerState.
+        // Both context and ref are passed — context for Navigator, ref for
+        // pre-warming the drawerProfileProvider before the route is pushed.
         SmoothDrawerService.showLeftDrawer(context, ref);
         break;
       default:
@@ -236,7 +284,6 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final unreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Material(
       type: MaterialType.transparency,
@@ -244,21 +291,16 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
         fit: StackFit.expand,
         children: [
           if (_menuMode == _MenuMode.bottomNav)
-            _buildNavBar(size, isBottom: true, unreadCount: unreadCount)
+            _buildNavBar(size, isBottom: true)
           else if (_menuMode == _MenuMode.topNav)
-            _buildNavBar(size, isBottom: false, unreadCount: unreadCount)
+            _buildNavBar(size, isBottom: false)
           else ...[
             if (_isExpanded)
               Positioned(
                 left: _buttonX,
                 top: _buttonY - 25 - (_topIcons.length * 52),
-                child: _buildIconsContainer(
-                  _topIcons,
-                  size,
-                  unreadCount: unreadCount,
-                ),
+                child: _buildIconsContainer(_topIcons, size),
               ),
-
             Positioned(
               left: _buttonX,
               top: _buttonY - 25,
@@ -309,12 +351,12 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
                       ),
                     ),
                   ),
-                  if (unreadCount > 0 && !_isExpanded)
+                  if (_unreadNotificationCount > 0 && !_isExpanded)
                     Positioned(
                       top: 0,
                       right: 0,
-                      child: _Badge(
-                        count: unreadCount,
+                      child: _badge(
+                        _unreadNotificationCount,
                         minSize: 18,
                         fontSize: 10,
                       ),
@@ -326,11 +368,7 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
               Positioned(
                 left: _buttonX,
                 top: _buttonY + 33,
-                child: _buildIconsContainer(
-                  _bottomIcons,
-                  size,
-                  unreadCount: unreadCount,
-                ),
+                child: _buildIconsContainer(_bottomIcons, size),
               ),
           ],
         ],
@@ -338,12 +376,11 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
     );
   }
 
-  Widget _buildNavBar(
-    Size size, {
-    required bool isBottom,
-    required int unreadCount,
-  }) {
+  // ── Nav bar widget ───────────────────────────────────────────────────────
+
+  Widget _buildNavBar(Size size, {required bool isBottom}) {
     final topPadding = isBottom ? 0.0 : MediaQuery.of(context).padding.top;
+
     return Positioned(
       left: 0,
       right: 0,
@@ -352,7 +389,7 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
       child: _NavBar(
         items: _navItems,
         selectedIndex: _selectedNavIndex,
-        unreadCount: unreadCount,
+        unreadCount: _unreadNotificationCount,
         isBottom: isBottom,
         topPadding: topPadding,
         onItemTap: (i) {
@@ -364,11 +401,9 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
     );
   }
 
-  Widget _buildIconsContainer(
-    List<Map<String, dynamic>> items,
-    Size size, {
-    required int unreadCount,
-  }) {
+  // ── Floating popup column ────────────────────────────────────────────────
+
+  Widget _buildIconsContainer(List<Map<String, dynamic>> items, Size size) {
     BorderRadius br;
     if (_buttonX >= size.width - 70) {
       br = const BorderRadius.only(
@@ -416,12 +451,12 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
                         alignment: Alignment.center,
                         children: [
                           Icon(item['icon'], color: Colors.orange, size: 22),
-                          if (isNotif && unreadCount > 0)
+                          if (isNotif && _unreadNotificationCount > 0)
                             Positioned(
                               top: 8,
                               right: 8,
-                              child: _Badge(
-                                count: unreadCount,
+                              child: _badge(
+                                _unreadNotificationCount,
                                 minSize: 14,
                                 fontSize: 8,
                               ),
@@ -436,21 +471,12 @@ class _FloatingMenuWidgetState extends ConsumerState<FloatingMenuWidget>
       ),
     );
   }
-}
 
-class _Badge extends StatelessWidget {
-  final int count;
-  final double minSize;
-  final double fontSize;
-
-  const _Badge({
-    required this.count,
-    required this.minSize,
-    required this.fontSize,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _badge(
+    int count, {
+    required double minSize,
+    required double fontSize,
+  }) {
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
@@ -472,6 +498,9 @@ class _Badge extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// _NavBar — unchanged, no Riverpod needed here
+// ─────────────────────────────────────────────────────────────────────────────
 class _NavBar extends StatefulWidget {
   final List<Map<String, dynamic>> items;
   final int selectedIndex;
@@ -585,10 +614,31 @@ class _NavBarState extends State<_NavBar> with SingleTickerProviderStateMixin {
                         Positioned(
                           top: -4,
                           right: -6,
-                          child: _Badge(
-                            count: widget.unreadCount,
-                            minSize: 16,
-                            fontSize: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.whitecolor,
+                                width: 1.5,
+                              ),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              widget.unreadCount > 99
+                                  ? '99+'
+                                  : widget.unreadCount.toString(),
+                              style: const TextStyle(
+                                color: AppColors.whitecolor,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
                     ],

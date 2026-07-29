@@ -13,6 +13,7 @@ import 'package:innovator/Innovator/Authorization/Login.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
 import 'package:innovator/Innovator/controllers/user_controller.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/OptimizeMediaScreen.dart';
 import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/full_screen_image_viewer.dart';
 import 'package:innovator/Innovator/screens/Feed/facebook_video_widget.dart';
@@ -176,10 +177,14 @@ class FeedApiService {
     required BuildContext context,
   }) async {
     try {
-      final uri =
-          cursor != null && cursor.isNotEmpty
-              ? Uri.parse('http://36.253.137.34:8005/api/feed/?cursor=$cursor')
-              : Uri.parse('http://36.253.137.34:8005/api/feed/');
+      // FeedService: GET /api/feed?page=<n>&pageSize=<n> (page-based, wrapped).
+      final page = int.tryParse(cursor ?? '') ?? 1;
+      const pageSize = 10;
+      final uri = Uri.parse(
+        'http://36.253.137.34:8012/api/feed',
+      ).replace(
+        queryParameters: {'page': '$page', 'pageSize': '$pageSize'},
+      );
       // final uri =
       //     cursor != null && cursor.startsWith('http')
       //         ? Uri.parse(cursor) // full URL from "next" field
@@ -195,7 +200,7 @@ class FeedApiService {
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        return ContentData.fromNewFeedApi(decoded);
+        return ContentData.fromNewFeedApi(decoded, page: page, pageSize: pageSize);
       } else if (response.statusCode == 401) {
         if (context.mounted) {
           Navigator.pushAndRemoveUntil(
@@ -254,7 +259,11 @@ class ContentData {
     this.nextCursor,
   });
 
-  factory ContentData.fromNewFeedApi(dynamic rawJson) {
+  factory ContentData.fromNewFeedApi(
+    dynamic rawJson, {
+    int page = 1,
+    int pageSize = 10,
+  }) {
     try {
       List<dynamic> postList = [];
       String? nextCursor;
@@ -263,17 +272,26 @@ class ContentData {
       if (rawJson is List) {
         postList = rawJson;
       } else if (rawJson is Map<String, dynamic>) {
-        hasMore = rawJson['has_next'] == true;
-        final rawCursor = rawJson['next_cursor'];
-        if (hasMore && rawCursor != null) {
-          nextCursor = rawCursor.toString();
-        }
-        // final rawNext = rawJson['next']; // full next URL
-        // if (hasMore && rawNext != null) {
-        //   nextCursor = rawNext.toString(); // store full URL
-        // }
+        // FeedService wraps the payload: { success, message, data: {...} }.
+        final payload =
+            rawJson['data'] is Map<String, dynamic>
+                ? rawJson['data'] as Map<String, dynamic>
+                : rawJson;
 
-        postList = rawJson['results'] as List? ?? [];
+        postList = payload['results'] as List? ?? [];
+
+        // Prefer the server's "next" URL; fall back to counting against the
+        // total ("count") so load-more works even if "next" is absent.
+        final next = payload['next'];
+        if (next != null && next.toString().isNotEmpty) {
+          hasMore = true;
+          final match = RegExp(r'[?&]page=(\d+)').firstMatch(next.toString());
+          nextCursor = match?.group(1) ?? '${page + 1}';
+        } else {
+          final total = (payload['count'] as num?)?.toInt() ?? 0;
+          hasMore = page * pageSize < total;
+          if (hasMore) nextCursor = '${page + 1}';
+        }
       }
 
       developer.log(
@@ -663,11 +681,16 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
     final unreadCount = ref.watch(chatUnreadCountProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.whitecolor,
-      body: CustomRefreshIndicator(
-        onRefresh: _refresh,
-        gifPath: 'animation/IdeaBulb.gif',
-        child: _buildContent(),
+      backgroundColor: BrandColors.canvas,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AnimatedBlobBackground()),
+          CustomRefreshIndicator(
+            onRefresh: _refresh,
+            gifPath: 'animation/IdeaBulb.gif',
+            child: _buildContent(),
+          ),
+        ],
       ),
       floatingActionButton: CountBadgeFAB(
         count: unreadCount,
@@ -722,7 +745,7 @@ class _Inner_HomePageState extends ConsumerState<Inner_HomePage> {
           icon: const Icon(Icons.refresh),
           label: const Text('Try Again'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color.fromRGBO(244, 135, 6, 1),
+            backgroundColor: BrandColors.secondarySurface,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             shape: RoundedRectangleBorder(
@@ -873,7 +896,7 @@ class _FeedItemState extends State<FeedItem>
   bool _isOwnContent = false;
 
   final ContentLikeService likeService = ContentLikeService(
-    baseUrl: 'http://36.253.137.34:8005',
+    baseUrl: 'http://36.253.137.34:8012',
   );
 
   @override
@@ -944,7 +967,7 @@ class _FeedItemState extends State<FeedItem>
       if (token == null || token.isEmpty) return;
       final response = await http
           .post(
-            Uri.parse('${ApiConstants.recordview}${widget.content.id}/view/'),
+            Uri.parse('${ApiConstants.recordview}${widget.content.id}/view'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -979,7 +1002,7 @@ class _FeedItemState extends State<FeedItem>
       case 'project':
         return Colors.indigo.shade600;
       case 'question':
-        return Colors.orange.shade600;
+        return BrandColors.accent;
       case 'announcement':
         return Colors.deepPurple.shade600;
       case 'fun':
@@ -1080,29 +1103,20 @@ class _FeedItemState extends State<FeedItem>
     //     ],
     //   ),
     Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      decoration: const BoxDecoration(
-        // ← const now possible
-        color: AppColors.whitecolor,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20.0),
-          bottomRight: Radius.circular(20.0),
-          topLeft: Radius.circular(5.0),
-          topRight: Radius.circular(5.0),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .72),
+        borderRadius: const BorderRadius.all(Radius.circular(22.0)),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: .85),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0F000000), // ← withAlpha(15) = 0x0F. const-safe.
-            blurRadius: 20.0,
-            offset: Offset(0, 4),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 8.0,
-            offset: Offset(0, 2),
-            spreadRadius: 0,
+            color: BrandColors.secondarySurface.withValues(alpha: .06),
+            blurRadius: 24.0,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -1135,13 +1149,13 @@ class _FeedItemState extends State<FeedItem>
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
                         colors: [
-                          Color.fromRGBO(244, 135, 6, 1),
-                          Color.fromRGBO(255, 204, 0, 1),
+                          BrandColors.secondarySurface,
+                          BrandColors.accent,
                         ],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.orangeAccent.shade100,
+                          color: BrandColors.accent.withValues(alpha: .35),
                           blurRadius: 12.0,
                           offset: const Offset(0, 4),
                         ),
@@ -1489,34 +1503,42 @@ class _FeedItemState extends State<FeedItem>
                     ),
                   ],
                 ),
-                const SizedBox(width: 30),
-                InkWell(
-                  onTap: () => setState(() => _showComments = !_showComments),
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        'assets/icon/comment.png',
-                        color:
-                            _showComments
-                                ? Colors.blue.shade700
-                                : Colors.grey.shade800,
-                        width: 25,
-                        height: 25,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '${widget.content.comments} Comments',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                          fontSize: 11.0,
+                const SizedBox(width: 18),
+                Flexible(
+                  child: InkWell(
+                    onTap: () => setState(() => _showComments = !_showComments),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/icon/comment.png',
+                          color:
+                              _showComments
+                                  ? Colors.blue.shade700
+                                  : Colors.grey.shade800,
+                          width: 25,
+                          height: 25,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            '${widget.content.comments} Comments',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                              fontSize: 11.0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                SizedBox(width: 20),
+                const SizedBox(width: 12),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     RepostButton(
                       postId: widget.content.id,
@@ -2021,7 +2043,7 @@ class _FeedItemState extends State<FeedItem>
                 width: 48,
                 height: 48,
                 child: CircularProgressIndicator(
-                  color: Color.fromRGBO(244, 135, 6, 1),
+                  color: BrandColors.accent,
                   strokeWidth: 3,
                 ),
               ),
@@ -2122,7 +2144,7 @@ class _FeedItemState extends State<FeedItem>
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.edit, color: Color(0xFFF48706)),
+                  leading: const Icon(Icons.edit, color: BrandColors.secondarySurface),
                   title: const Text('Edit content'),
                   onTap: () => Navigator.pop(context, 'edit'),
                 ),
@@ -2186,7 +2208,7 @@ class _FeedItemState extends State<FeedItem>
                   onTap: () => Navigator.pop(context, 'copy'),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.flag, color: Colors.orange),
+                  leading: const Icon(Icons.flag, color: BrandColors.accent),
                   title: const Text('Report'),
                   onTap: () => Navigator.pop(context, 'report'),
                 ),
@@ -2227,7 +2249,7 @@ class _FeedItemState extends State<FeedItem>
             ),
             title: Row(
               children: [
-                const Icon(Icons.edit, color: Color(0xFFF48706)),
+                const Icon(Icons.edit, color: BrandColors.secondarySurface),
                 const SizedBox(width: 8),
                 Text('Edit $fieldLabel'),
               ],
@@ -2248,7 +2270,7 @@ class _FeedItemState extends State<FeedItem>
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(
-                          color: Color(0xFFF48706),
+                          color: BrandColors.secondarySurface,
                           width: 2,
                         ),
                       ),
@@ -2279,7 +2301,7 @@ class _FeedItemState extends State<FeedItem>
                   Navigator.pop(context, controller.text.trim());
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF48706),
+                  backgroundColor: BrandColors.secondarySurface,
                   foregroundColor: AppColors.whitecolor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -3010,7 +3032,7 @@ class _FeedItemState extends State<FeedItem>
       final response = await http
           .post(
             Uri.parse(
-              '${ApiConstants.blockuser}${widget.content.author.id}/block/',
+              '${ApiConstants.blockuser}${widget.content.author.id}/block',
             ),
             headers: {
               'Content-Type': 'application/json',
@@ -3053,7 +3075,7 @@ class _FeedItemState extends State<FeedItem>
         Get.snackbar(
           'Already Blocked',
           msg,
-          backgroundColor: Colors.orange,
+          backgroundColor: BrandColors.secondarySurface,
           colorText: AppColors.whitecolor,
           icon: const Icon(Icons.info, color: AppColors.whitecolor),
         );
@@ -4003,9 +4025,9 @@ class _FeedRefreshBar extends StatelessWidget {
       height: 3,
       child: LinearProgressIndicator(
         value: null,
-        backgroundColor: const Color.fromRGBO(244, 135, 6, 0.15),
+        backgroundColor: BrandColors.accent.withValues(alpha: .15),
         valueColor: const AlwaysStoppedAnimation<Color>(
-          Color.fromRGBO(244, 135, 6, 1),
+          BrandColors.accent,
         ),
         minHeight: 3,
       ),
@@ -4109,7 +4131,7 @@ class _SaveLoadingDialog extends StatelessWidget {
               child: LinearProgressIndicator(
                 backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  const Color.fromRGBO(244, 135, 6, 1),
+                  BrandColors.accent,
                 ),
                 borderRadius: BorderRadius.circular(4),
               ),

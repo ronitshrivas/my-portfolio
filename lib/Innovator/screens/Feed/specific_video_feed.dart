@@ -8,7 +8,7 @@ import 'package:innovator/Innovator/models/Feed_Content_Model.dart';
 import 'package:innovator/Innovator/screens/Feed/Inner_Homepage.dart';
 
 class MyReelsService {
-  static const String _base = 'http://36.253.137.34:8005';
+  static const String _base = 'http://36.253.137.34:8012';
 
   static Map<String, String> _headers() {
     final token = AppData().accessToken ?? '';

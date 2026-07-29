@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/widget/Custom_refresh_Indicator.dart';
 import 'package:innovator/ecommerce/provider/notificationProvider.dart';
 import 'package:innovator/ecommerce/screens/Shop/cart_screen.dart';
@@ -257,13 +258,13 @@ class _ShopPageState extends ConsumerState<ShopPage> {
               decoration: BoxDecoration(
                 color:
                     isSelected
-                        ? const Color.fromRGBO(244, 135, 6, 1)
+                        ? BrandColors.secondarySurface
                         : Colors.grey[100],
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color:
                       isSelected
-                          ? const Color.fromRGBO(244, 135, 6, 1)
+                          ? BrandColors.secondarySurface
                           : Colors.grey.shade300,
                 ),
               ),
@@ -298,7 +299,7 @@ class _ShopPageState extends ConsumerState<ShopPage> {
     return Scaffold(
       floatingActionButton: Container(
         decoration: BoxDecoration(
-          color: const Color.fromRGBO(244, 135, 6, 1),
+          color: BrandColors.secondarySurface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: FloatingActionButton(
@@ -324,9 +325,10 @@ class _ShopPageState extends ConsumerState<ShopPage> {
           ),
         ),
       ),
-      backgroundColor: Colors.grey[50],
+      backgroundColor: BrandColors.canvas,
       body: Stack(
         children: [
+          const Positioned.fill(child: AnimatedBlobBackground()),
           Column(
             children: [
               SizedBox(height: topAreaHeight),
@@ -590,9 +592,12 @@ class _ShopPageState extends ConsumerState<ShopPage> {
             ),
           ),
       child: Card(
-        color: Colors.white,
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: Colors.white.withValues(alpha: .72),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withValues(alpha: .85)),
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Column(
@@ -695,12 +700,7 @@ class _ShopPageState extends ConsumerState<ShopPage> {
                                   ? () => _addToCart(product)
                                   : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromRGBO(
-                              244,
-                              135,
-                              6,
-                              1,
-                            ),
+                            backgroundColor: BrandColors.secondarySurface,
                             disabledBackgroundColor: Colors.grey[300],
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(

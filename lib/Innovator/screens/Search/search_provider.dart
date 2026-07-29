@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:innovator/Innovator/App_data/App_data.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 
-const String _baseUrl = 'http://36.253.137.34:8005';
+const String _baseUrl = 'http://36.253.137.34:8015';
 
 class SearchUser {
   final String id;
@@ -17,7 +17,8 @@ class SearchUser {
     String? avatar =
         json['profile']?['avatar'] as String? ?? json['avatar'] as String?;
     if (avatar != null && avatar.isNotEmpty && !avatar.startsWith('http')) {
-      avatar = '$_baseUrl$avatar';
+      // Avatars are served by the profile service (8011), not search.
+      avatar = 'http://36.253.137.34:8011$avatar';
     }
     return SearchUser(
       id: json['id'] as String? ?? '',
@@ -98,10 +99,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
     }
     state = state.copyWith(isLoading: true, isSearching: true, error: null);
     try {
-      // Use real search endpoint with ?search= param
+      // Search service: GET /api/search/users?q=
       final uri = Uri.parse(
-        '$_baseUrl/api/users/',
-      ).replace(queryParameters: {'search': query.trim()});
+        '$_baseUrl/api/search/users',
+      ).replace(queryParameters: {'q': query.trim()});
       final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
         final raw = json.decode(response.body) as List<dynamic>;

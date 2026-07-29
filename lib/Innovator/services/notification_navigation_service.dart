@@ -186,7 +186,7 @@ class NotificationNavigationService {
       if (token == null || token.isEmpty) return;
       await http.post(
         Uri.parse(
-          'http://36.253.137.34:8005/api/notifications/$notificationId/mark-as-read/',
+          'http://36.253.137.34:8012/api/notifications/$notificationId/mark-as-read',
         ),
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/provider/upload_provider.dart';
 import 'package:innovator/Innovator/screens/CreatePost/reels_camera_screen.dart';
 import 'package:innovator/Innovator/screens/CreatePost/reels_preview_screen.dart';
@@ -48,7 +50,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
 
   static const String _groqApiUrl =
       'https://api.groq.com/openai/v1/chat/completions';
-  static const String _groqApiKey = '';
+  static const String _groqApiKey =
+      'REVOKED_GROQ_KEY';
 
   List<Map<String, dynamic>> _categories = [];
   bool _categoriesLoading = true;
@@ -115,9 +118,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        // FeedService wraps the list: { success, message, data: [...] }.
+        final decoded = json.decode(response.body);
+        final List<dynamic> data =
+            decoded is List
+                ? decoded
+                : (decoded is Map<String, dynamic>
+                    ? (decoded['data'] as List<dynamic>? ?? [])
+                    : []);
         setState(() {
-          _categories = data.cast<Map<String, dynamic>>();
+          _categories = data.whereType<Map<String, dynamic>>().toList();
           _categoriesLoading = false;
         });
       } else {
@@ -632,17 +642,21 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
 
     // Upload runs after navigation using container (not ref)
     try {
-      final uri = Uri.parse(ApiConstants.createpost);
+      // Backend route is /api/posts (no trailing slash).
+      final createUrl = ApiConstants.createpost.replaceAll(RegExp(r'/+$'), '');
+      final uri = Uri.parse(createUrl);
       final request = http.MultipartRequest('POST', uri);
 
       if (accessToken != null) {
         request.headers['Authorization'] = 'Bearer $accessToken';
       }
 
+      // FeedService POST /api/posts expects: content, categoryIds (repeated),
+      // sharedPostId, media (repeated file field).
       request.fields['content'] = content;
 
-      if (categoryId != null) {
-        request.fields['category_ids'] = categoryId;
+      if (categoryId != null && categoryId.isNotEmpty) {
+        request.fields['categoryIds'] = categoryId;
       }
 
       for (final file in filesToUpload) {
@@ -651,7 +665,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
             lookupMimeType(file.path!) ?? 'application/octet-stream';
         request.files.add(
           await http.MultipartFile.fromPath(
-            'uploaded_media',
+            'media',
             file.path!,
             contentType: MediaType.parse(mimeType),
             filename: path.basename(file.path!),
@@ -673,6 +687,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
         container.read(postUploadMessageProvider.notifier).state =
             'Authentication failed. Please log in again.';
       } else {
+        // Surface the real server error to the log to diagnose 400s.
+        developer.log(
+          '[CreatePost] ${response.statusCode} body: ${response.body}',
+        );
         Map<String, dynamic> body = {};
         try {
           body = json.decode(response.body) as Map<String, dynamic>;
@@ -680,7 +698,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
         final msg =
             body['detail']?.toString() ??
             body['message']?.toString() ??
-            'Failed to create post (${response.statusCode})';
+            (body['errors'] != null
+                ? body['errors'].toString()
+                : 'Failed to create post (${response.statusCode})');
         container.read(postUploadingProvider.notifier).state = false;
         container.read(postUploadMessageProvider.notifier).state = msg;
       }
@@ -1133,70 +1153,75 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
                     ],
                   ),
                 ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _isPostButtonEnabled ? _createPost : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _facebookBlue,
+                    foregroundColor: AppColors.whitecolor,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    disabledForegroundColor: Colors.grey.shade500,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child:
+                      _isCreatingPost
+                          ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: AppColors.whitecolor,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Publishing...',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          )
+                          : const Text(
+                            'Publish',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                ),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          top: 12,
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(context).padding.bottom + 12,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.whitecolor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 4,
-              offset: const Offset(0, -1),
-            ),
-          ],
-        ),
-        child: ElevatedButton(
-          onPressed: _isPostButtonEnabled ? _createPost : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _facebookBlue,
-            foregroundColor: AppColors.whitecolor,
-            disabledBackgroundColor: Colors.grey.shade300,
-            disabledForegroundColor: Colors.grey.shade500,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child:
-              _isCreatingPost
-                  ? const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: AppColors.whitecolor,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Publishing...',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  )
-                  : const Text(
-                    'Publish',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-        ),
-      ),
+      // bottomNavigationBar: Container(
+      //   padding: EdgeInsets.only(
+      //     top: 40,
+      //     left: 16,
+      //     right: 16,
+      //     bottom: MediaQuery.of(context).padding.bottom + 12,
+      //   ),
+      //   decoration: BoxDecoration(
+      //     color: AppColors.whitecolor,
+      //     boxShadow: [
+      //       BoxShadow(
+      //         color: Colors.black.withAlpha(10),
+      //         blurRadius: 4,
+      //         offset: const Offset(0, -1),
+      //       ),
+      //     ],
+      //   ),
+      //   child:
+      // ),
       floatingActionButton: CountBadgeFAB(
         count: unreadCount,
         gifAsset: 'animation/chaticon.gif',
@@ -1210,6 +1235,40 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
             ref.invalidate(mutualFriendsProvider);
           });
         },
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          child: LiquidNavBar(
+            dock: NavDock.bottom,
+            leading: const [
+              LiquidNavItem(icon: Icons.home_rounded, label: 'Feed'),
+              LiquidNavItem(icon: Icons.search_rounded, label: 'Search'),
+              LiquidNavItem(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: 'Chat',
+              ),
+            ],
+            trailing: const [
+              LiquidNavItem(icon: Icons.add_a_photo_rounded, label: 'Post'),
+              LiquidNavItem(icon: Icons.storefront_outlined, label: 'Shop'),
+              LiquidNavItem(
+                icon: Icons.menu_rounded,
+                label: 'Menu',
+                pinBottom: true,
+              ),
+            ],
+            // Post is the current screen; other taps return to the shell.
+            selectedIndex: 3,
+            onSelect: (_) {
+              if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+            },
+            onLogoTap: () {
+              if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+            },
+          ),
+        ),
       ),
     );
   }

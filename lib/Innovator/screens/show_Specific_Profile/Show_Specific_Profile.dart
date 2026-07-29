@@ -164,7 +164,8 @@ class _SpecificUserProfilePageState
       final token = _appData.accessToken ?? '';
       final response = await http
           .get(
-            Uri.parse('${ApiConstants.fetchotheruserprofile}${widget.userId}/'),
+            // ProfileService: GET /api/users/{authUserId} (no trailing slash).
+            Uri.parse('${ApiConstants.fetchotheruserprofile}${widget.userId}'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -174,39 +175,34 @@ class _SpecificUserProfilePageState
           .timeout(const Duration(seconds: 30));
 
       developer.log(
-        '[SpecificProfile] GET /api/users/${widget.userId}/ → ${response.statusCode}',
+        '[SpecificProfile] GET /api/users/${widget.userId} → ${response.statusCode}',
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
+        final decoded = json.decode(response.body) as Map<String, dynamic>;
+        // ProfileService wraps the flat profile in { success, message, data }.
+        final data =
+            decoded['data'] is Map<String, dynamic>
+                ? decoded['data'] as Map<String, dynamic>
+                : decoded;
 
-        final rawPosts = data['posts'] as List<dynamic>? ?? [];
-        final parsed =
-            rawPosts
-                .whereType<Map<String, dynamic>>()
-                .map((p) {
-                  try {
-                    return FeedContent.fromNewApiPost(p);
-                  } catch (e) {
-                    developer.log('[SpecificProfile] post parse error: $e');
-                    return null;
-                  }
-                })
-                .whereType<FeedContent>()
-                .where((c) => c.id.isNotEmpty)
-                .toList();
+        // Posts come from the feed service, not the profile response.
+        final parsed = await _fetchUserPosts(widget.userId, token);
 
         if (mounted)
           setState(() {
             _posts = parsed;
-            _postsLoaded = true; // ← this was missing
+            _postsLoaded = true;
           });
 
-        // Cache avatar in UserController
+        // Cache avatar in UserController (fields are flat now).
         try {
           if (Get.isRegistered<UserController>()) {
             final uc = Get.find<UserController>();
-            final avatar = data['profile']?['avatar']?.toString() ?? '';
+            final avatar =
+                data['avatar']?.toString() ??
+                data['profile']?['avatar']?.toString() ??
+                '';
             uc.cacheUserProfilePicture(
               widget.userId,
               avatar.isNotEmpty ? avatar : null,
@@ -233,6 +229,40 @@ class _SpecificUserProfilePageState
     } catch (e) {
       developer.log('[SpecificProfile] fetchUserProfile error: $e');
       rethrow;
+    }
+  }
+
+  // Feed service: GET /api/users/{authorId}/posts (ApiResponse-wrapped list).
+  Future<List<FeedContent>> _fetchUserPosts(String authorId, String token) async {
+    try {
+      final res = await http.get(
+        Uri.parse('http://36.253.137.34:8012/api/users/$authorId/posts'),
+        headers: {
+          'Accept': 'application/json',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode != 200) return const [];
+      final decoded = json.decode(res.body);
+      final payload =
+          decoded is Map<String, dynamic> && decoded['data'] is Map
+              ? decoded['data'] as Map<String, dynamic>
+              : decoded;
+      final rawList =
+          payload is Map<String, dynamic>
+              ? (payload['results'] as List? ?? [])
+              : (payload is List ? payload : const []);
+      return rawList
+          .whereType<Map<String, dynamic>>()
+          .map((p) {
+            if (p['video'] != null) p['type'] = 'reel';
+            return FeedContent.fromNewApiPost(p);
+          })
+          .whereType<FeedContent>()
+          .where((c) => c.id.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
     }
   }
 
@@ -357,10 +387,20 @@ class _SpecificUserProfilePageState
       }
     }
 
-    final raw = d['profile']?['avatar']?.toString() ?? '';
+    // Fields are flat now; keep nested "profile" as a fallback.
+    final raw =
+        d['avatar']?.toString() ?? d['profile']?['avatar']?.toString() ?? '';
     if (raw.isEmpty) return null;
-    if (raw.startsWith('http')) return raw;
-    return '${ApiConstants.userBase}$raw';
+    if (raw.startsWith('http')) {
+      final uri = Uri.tryParse(raw);
+      if (uri != null &&
+          (uri.host == 'localhost' ||
+              (uri.host == '36.253.137.34' && uri.port != 8011))) {
+        return 'http://36.253.137.34:8011${uri.path}';
+      }
+      return raw;
+    }
+    return 'http://36.253.137.34:8011${raw.startsWith('/') ? '' : '/'}$raw';
   }
 
   String _followersCount(Map<String, dynamic> d) =>
@@ -372,24 +412,27 @@ class _SpecificUserProfilePageState
           .toString();
 
   String? _bio(Map<String, dynamic> d) {
-    final b = d['profile']?['bio']?.toString().trim() ?? '';
+    final b =
+        (d['bio'] ?? d['profile']?['bio'])?.toString().trim() ?? '';
     return b.isNotEmpty ? b : null;
   }
 
   String? _gender(Map<String, dynamic> d) =>
-      d['profile']?['gender']?.toString();
+      (d['gender'] ?? d['profile']?['gender'])?.toString();
   String? _dob(Map<String, dynamic> d) =>
-      d['profile']?['date_of_birth']?.toString();
+      (d['date_of_birth'] ?? d['profile']?['date_of_birth'])?.toString();
   String? _address(Map<String, dynamic> d) =>
-      d['profile']?['address']?.toString();
+      (d['address'] ?? d['profile']?['address'])?.toString();
 
   String? _occupation(Map<String, dynamic> d) {
-    final o = d['profile']?['occupation']?.toString().trim() ?? '';
+    final o =
+        (d['occupation'] ?? d['profile']?['occupation'])?.toString().trim() ??
+        '';
     return o.isNotEmpty ? o : null;
   }
 
   String? _education(Map<String, dynamic> d) =>
-      d['profile']?['education']?.toString();
+      (d['education'] ?? d['profile']?['education'])?.toString();
   String? _hobbies(Map<String, dynamic> d) =>
       d['hobbies']?.toString() ?? d['profile']?['hobbies']?.toString();
 

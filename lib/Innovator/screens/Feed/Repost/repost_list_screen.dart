@@ -19,7 +19,7 @@ import 'package:innovator/Innovator/widget/CustomizeFAB.dart';
 const _kOrange = Color.fromRGBO(244, 135, 6, 1);
 const _kOrangeLight = Color.fromRGBO(244, 135, 6, 0.10);
 const _kGold = Color.fromRGBO(255, 204, 0, 1);
-const _kBaseUrl = 'http://36.253.137.34:8005';
+const _kBaseUrl = 'http://36.253.137.34:8012';
 
 class _RepostsApiService {
   static Map<String, String> _headers() {
@@ -439,7 +439,7 @@ class _RepostEntryCardState extends State<_RepostEntryCard>
   late int _localCommentCount;
 
   final ContentLikeService likeService = ContentLikeService(
-    baseUrl: 'http://36.253.137.34:8005',
+    baseUrl: 'http://36.253.137.34:8012',
   );
   @override
   void initState() {

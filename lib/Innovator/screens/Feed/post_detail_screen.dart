@@ -56,7 +56,7 @@
 //       // New API: GET /api/posts/<id>/
 //       final response = await http
 //           .get(
-//             Uri.parse('http://36.253.137.34:8005/api/posts/${widget.postId}/'),
+//             Uri.parse('http://36.253.137.34:8012/api/posts/${widget.postId}/'),
 //             headers: {
 //               'Content-Type': 'application/json',
 //               'Accept': 'application/json',
@@ -334,7 +334,7 @@ class _NewFeedPostDetailScreenState extends State<NewFeedPostDetailScreen> {
 
       final response = await http
           .get(
-            Uri.parse('http://36.253.137.34:8005/api/posts/${widget.postId}/'),
+            Uri.parse('http://36.253.137.34:8012/api/posts/${widget.postId}/'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -658,7 +658,7 @@ class _ReelDetailViewState extends State<_ReelDetailView>
   bool _showControls = true;
 
   final ContentLikeService _likeService = ContentLikeService(
-    baseUrl: 'http://36.253.137.34:8005',
+    baseUrl: 'http://36.253.137.34:8012',
   );
 
   String get _videoUrl {

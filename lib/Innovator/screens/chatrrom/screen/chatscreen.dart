@@ -2753,8 +2753,8 @@ const _kOrange = Color.fromRGBO(244, 135, 6, 1);
 const _kOrangeLight = Color.fromRGBO(244, 135, 6, 0.12);
 const _kBg = Color(0xFFF5F6FA);
 const _kReceivedBubble = Color(0xFFFFFFFF);
-const _kBaseUrl = 'ws://36.253.137.34:8005';
-const _kHttpBase = 'http://36.253.137.34:8005';
+const _kBaseUrl = 'ws://36.253.137.34:8014';
+const _kHttpBase = 'http://36.253.137.34:8014';
 
 String _inferAttachmentType(String url) {
   final lower = url.toLowerCase();

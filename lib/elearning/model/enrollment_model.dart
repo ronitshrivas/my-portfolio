@@ -19,13 +19,15 @@ class EnrollmentModel {
 
   factory EnrollmentModel.fromJson(Map<String, dynamic> json) {
     return EnrollmentModel(
-      id: json['id'],
-      student: json['student'],
-      course: json['course'],
-      courseTitle: json['course_title'],
-      status: json['status'],
-      isEnrolled: json['is_enrolled'] ?? false,
-      enrolledAt: DateTime.parse(json['enrolled_at']),
+      id: json['id']?.toString() ?? '',
+      student: json['student']?.toString() ?? '',
+      course: json['course']?.toString() ?? '',
+      courseTitle: json['course_title']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      isEnrolled: json['is_enrolled'] as bool? ?? false,
+      enrolledAt:
+          DateTime.tryParse(json['enrolled_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }

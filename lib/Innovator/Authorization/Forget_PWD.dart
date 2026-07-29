@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:innovator/Innovator/Authorization/otp.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 
 enum ForgotMood { idle, typing, thinking, happy, sad }
 
@@ -35,7 +36,7 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   late Animation<double> happyJump;
   late Animation<double> thinkBob;
 
-  static const Color orange = Color.fromRGBO(244, 135, 6, 1);
+  static const Color orange = BrandColors.secondarySurface;
   static const Color orangeLight = Color(0xFFFFF3E0);
   static const Color textDark = Color(0xFF1A1A1A);
   static const Color textGrey = Color(0xFF757575);
@@ -440,7 +441,7 @@ class ForgotPersonPainter extends CustomPainter {
   static const Color skin = Color(0xFFFFD5B0);
   static const Color skinDark = Color(0xFFE8A87C);
   static const Color hair = Color(0xFF3E2723);
-  static const Color shirtTop = Color.fromRGBO(244, 135, 6, 1);
+  static const Color shirtTop = BrandColors.secondarySurface;
   static const Color shirtBot = Color(0xFFE65100);
   static const Color pants = Color(0xFF37474F);
   static const Color pantsDark = Color(0xFF263238);

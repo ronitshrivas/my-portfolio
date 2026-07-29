@@ -8,6 +8,7 @@ import 'package:innovator/Innovator/Authorization/Login.dart';
 import 'package:innovator/Innovator/Authorization/otp.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/helper/dialogs.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -149,7 +150,7 @@ class Signup extends ConsumerStatefulWidget {
 }
 
 class _SignupState extends ConsumerState<Signup> {
-  final Color preciseGreen = const Color.fromRGBO(244, 135, 6, 1);
+  final Color preciseGreen = BrandColors.secondarySurface;
 
   bool _isPasswordVisible = false;
   bool isLoading = false;
@@ -353,14 +354,23 @@ class _SignupState extends ConsumerState<Signup> {
         ),
       ),
       child: Scaffold(
+        backgroundColor: BrandColors.canvas,
         body: Stack(
           children: [
-            // ── Orange header ──────────────────────────────────────────────
+            const Positioned.fill(child: AnimatedBlobBackground()),
+            // Brand header
             Container(
               width: mq.width,
               height: mq.height / 2.0,
               decoration: const BoxDecoration(
-                color: Color.fromRGBO(244, 135, 6, 1),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    BrandColors.secondarySurface,
+                    Color(0xFF10233B),
+                  ],
+                ),
                 borderRadius: BorderRadius.only(
                   bottomRight: Radius.circular(70),
                 ),
@@ -401,9 +411,15 @@ class _SignupState extends ConsumerState<Signup> {
               child: Container(
                 width: mq.width,
                 height: mq.height / 1.6,
-                decoration: const BoxDecoration(
-                  color: AppColors.whitecolor,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(70)),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .82),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(70),
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .85),
+                    width: 1,
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
@@ -689,7 +705,7 @@ class _SignupState extends ConsumerState<Signup> {
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color.fromRGBO(244, 135, 6, 1)),
+      borderSide: const BorderSide(color: BrandColors.accent, width: 1.4),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),

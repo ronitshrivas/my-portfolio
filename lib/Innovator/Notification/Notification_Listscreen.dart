@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:innovator/Innovator/provider/notifcation_list_screen_provider.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/screens/chatrrom/screen/chatscreen.dart';
 import 'package:innovator/ecommerce/screens/Shop/Shop_Page.dart';
 import 'package:innovator/innovator_home.dart';
@@ -224,11 +225,11 @@ class _NotificationListScreenState extends ConsumerState<NotificationListScreen>
 
     return Material(
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: BrandColors.canvas,
         appBar: AppBar(
           elevation: 0,
           scrolledUnderElevation: 0,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.transparent,
           centerTitle: true,
           title: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -283,7 +284,7 @@ class _NotificationListScreenState extends ConsumerState<NotificationListScreen>
                       ? const Center(
                         child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFFF48706),
+                            BrandColors.secondarySurface,
                           ),
                         ),
                       )
@@ -341,10 +342,10 @@ class _NotificationListScreenState extends ConsumerState<NotificationListScreen>
         margin: const EdgeInsets.only(right: 10),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF48706) : Colors.white,
+          color: isSelected ? BrandColors.secondarySurface : Colors.white,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF48706) : Colors.grey.shade300,
+            color: isSelected ? BrandColors.secondarySurface : Colors.grey.shade300,
           ),
           boxShadow:
               isSelected
@@ -576,7 +577,7 @@ class _NotificationListScreenState extends ConsumerState<NotificationListScreen>
         child:
             state.isLoadingMore
                 ? const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF48706)),
+                  valueColor: AlwaysStoppedAnimation<Color>(BrandColors.secondarySurface),
                 )
                 : ElevatedButton(
                   onPressed:
@@ -586,7 +587,7 @@ class _NotificationListScreenState extends ConsumerState<NotificationListScreen>
                               .fetchMoreNotifications(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFF48706),
+                    foregroundColor: BrandColors.secondarySurface,
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),

@@ -48,6 +48,6 @@ class BlockedUser {
   String get avatarUrl {
     if (avatar == null || avatar!.isEmpty) return '';
     if (avatar!.startsWith('http')) return avatar!;
-    return 'http://36.253.137.34:8005$avatar';
+    return 'http://36.253.137.34:8011$avatar';
   }
 }

@@ -12,7 +12,7 @@
 
 // import '../../Feed/Optimize Media/full_screen_image_viewer.dart';
 
-// const _kHttpBase = 'http://36.253.137.34:8005';
+// const _kHttpBase = 'http://36.253.137.34:8014';
 // const Color _orange = Color.fromRGBO(244, 135, 6, 1);
 // const Color _orangeLight = Color.fromRGBO(244, 135, 6, 0.10);
 // const Color _orangeMid = Color.fromRGBO(244, 135, 6, 0.18);
@@ -1231,7 +1231,7 @@ import 'package:innovator/Innovator/provider/mutual_friend_state.dart';
 import 'package:innovator/Innovator/provider/unread_count_provider.dart';
 import 'package:innovator/Innovator/screens/chatrrom/screen/chatscreen.dart';
 
-const _kHttpBase = 'http://36.253.137.34:8005';
+const _kHttpBase = 'http://36.253.137.34:8014';
 const Color _orange = Color.fromRGBO(244, 135, 6, 1);
 const Color _orangeLight = Color.fromRGBO(244, 135, 6, 0.10);
 const Color _orangeMid = Color.fromRGBO(244, 135, 6, 0.18);

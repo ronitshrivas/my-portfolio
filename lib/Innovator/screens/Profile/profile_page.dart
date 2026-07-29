@@ -9,6 +9,7 @@ import 'package:innovator/Innovator/App_data/App_data.dart';
 import 'package:innovator/Innovator/Authorization/Login.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/models/Feed_Content_Model.dart';
 import 'package:innovator/Innovator/screens/Feed/Inner_Homepage.dart';
 import 'package:innovator/Innovator/screens/Feed/Optimize%20Media/full_screen_image_viewer.dart';
@@ -72,20 +73,24 @@ class UserProfileData {
   });
 
   factory UserProfileData.fromJson(Map<String, dynamic> json) {
-    final profile = json['profile'] as Map<String, dynamic>? ?? {};
-    final rawPosts = json['posts'] as List<dynamic>? ?? [];
+    // ProfileService wraps the payload: { success, message, data: {...} }.
+    // Its fields are flat (bio, avatar, interests at the top level), and posts
+    // are fetched separately from the feed service. Fall back to the legacy
+    // nested { profile: {...}, posts: [...] } shape when present.
+    final root =
+        json['data'] is Map<String, dynamic>
+            ? json['data'] as Map<String, dynamic>
+            : json;
+    final profile =
+        root['profile'] is Map<String, dynamic>
+            ? root['profile'] as Map<String, dynamic>
+            : root;
+
+    final rawPosts = root['posts'] as List<dynamic>? ?? [];
     final posts =
         rawPosts
             .whereType<Map<String, dynamic>>()
-            // .map((p) {
-            //   try {
-            //     return FeedContent.fromNewApiPost(p);
-            //   } catch (_) {
-            //     return null;
-            //   }
-            // })
             .map((p) {
-              // If the item has a 'video' field, it's a reel
               if (p['video'] != null) p['type'] = 'reel';
               return FeedContent.fromNewApiPost(p);
             })
@@ -93,43 +98,82 @@ class UserProfileData {
             .toList();
 
     return UserProfileData(
-      id: json['id']?.toString() ?? '',
-      username: json['username']?.toString() ?? '',
-      fullName: json['full_name']?.toString() ?? '',
-      email: json['email']?.toString() ?? '',
-      role: json['role']?.toString() ?? '',
+      id: root['id']?.toString() ?? '',
+      username: root['username']?.toString() ?? '',
+      fullName: root['full_name']?.toString() ?? '',
+      email: root['email']?.toString() ?? '',
+      role: root['role']?.toString() ?? '',
       bio: profile['bio']?.toString(),
       avatar: profile['avatar']?.toString(),
       dateOfBirth:
           profile['date_of_birth']?.toString() ??
-          json['date_of_birth']?.toString(),
+          root['date_of_birth']?.toString(),
       phone:
+          profile['phone']?.toString() ??
           profile['phone_number']?.toString() ??
-          json['phone_number']?.toString(),
-      gender: profile['gender']?.toString() ?? json['gender']?.toString(),
-      address: profile['address']?.toString() ?? json['address']?.toString(),
+          root['phone']?.toString(),
+      gender: profile['gender']?.toString() ?? root['gender']?.toString(),
+      address: profile['address']?.toString() ?? root['address']?.toString(),
       education: profile['education']?.toString(),
       occupation: profile['occupation']?.toString(),
       interests: List<String>.from(profile['interests'] ?? []),
-      followersCount: (json['followers_count'] as num?)?.toInt() ?? 0,
-      followingCount: (json['following_count'] as num?)?.toInt() ?? 0,
-      followerUsernames: List<String>.from(json['follower_usernames'] ?? []),
-      followingUsernames: List<String>.from(json['following_usernames'] ?? []),
+      followersCount: (root['followers_count'] as num?)?.toInt() ?? 0,
+      followingCount: (root['following_count'] as num?)?.toInt() ?? 0,
+      followerUsernames: List<String>.from(root['follower_usernames'] ?? []),
+      followingUsernames: List<String>.from(root['following_usernames'] ?? []),
       createdAt:
-          profile['created_at'] != null
-              ? DateTime.parse(profile['created_at'])
-              : DateTime.now(),
+          DateTime.tryParse(
+            profile['created_at']?.toString() ??
+                root['created_at']?.toString() ??
+                '',
+          ) ??
+          DateTime.now(),
       posts: posts,
     );
   }
 
-  String? get avatarUrl {
-    if (avatar == null || avatar!.isEmpty) return null;
-    if (avatar!.startsWith('http://') || avatar!.startsWith('https://')) {
-      return avatar;
+  String? get avatarUrl => _resolveAvatar(avatar);
+
+  UserProfileData copyWithPosts(List<FeedContent> newPosts) => UserProfileData(
+    id: id,
+    username: username,
+    fullName: fullName,
+    email: email,
+    role: role,
+    bio: bio,
+    avatar: avatar,
+    dateOfBirth: dateOfBirth,
+    phone: phone,
+    gender: gender,
+    address: address,
+    education: education,
+    occupation: occupation,
+    interests: interests,
+    followersCount: followersCount,
+    followingCount: followingCount,
+    followerUsernames: followerUsernames,
+    followingUsernames: followingUsernames,
+    createdAt: createdAt,
+    posts: newPosts,
+  );
+}
+
+// Avatars are served by the profile service (8011). Rewrite any localhost or
+// wrong-port absolute URL onto that host; prefix relative paths with it.
+String? _resolveAvatar(String? avatar) {
+  const profileHost = 'http://36.253.137.34:8011';
+  if (avatar == null || avatar.isEmpty) return null;
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    final uri = Uri.tryParse(avatar);
+    if (uri != null &&
+        (uri.host == 'localhost' ||
+            (uri.host == '36.253.137.34' && uri.port != 8011))) {
+      final tail = uri.path.startsWith('/') ? uri.path : '/${uri.path}';
+      return '$profileHost$tail';
     }
-    return '${ApiConstants.userBase}$avatar';
+    return avatar;
   }
+  return '$profileHost${avatar.startsWith('/') ? '' : '/'}$avatar';
 }
 
 class FollowerFollowing {
@@ -148,8 +192,10 @@ class FollowerFollowing {
   });
 
   factory FollowerFollowing.fromNewApi(Map<String, dynamic> json) {
-    final profile = json['profile'] as Map<String, dynamic>? ?? {};
-    final avatar = profile['avatar']?.toString();
+    // UserSummaryDto is flat: { id, username, full_name, avatar, role,
+    // is_followed }. Fall back to a nested "profile" for older payloads.
+    final profile = json['profile'] as Map<String, dynamic>? ?? const {};
+    final avatar = json['avatar']?.toString() ?? profile['avatar']?.toString();
     final fullName = json['full_name']?.toString() ?? '';
     final username = json['username']?.toString() ?? '';
 
@@ -162,13 +208,7 @@ class FollowerFollowing {
     );
   }
 
-  String? get fullPictureUrl {
-    if (picture == null || picture!.isEmpty) return null;
-    if (picture!.startsWith('http://') || picture!.startsWith('https://')) {
-      return picture;
-    }
-    return '${ApiConstants.userBase}$picture';
-  }
+  String? get fullPictureUrl => _resolveAvatar(picture);
 }
 
 class AuthException implements Exception {
@@ -189,14 +229,54 @@ class UserProfileService {
     final response = await http.get(url, headers: authHeaders(token));
 
     if (response.statusCode == 200) {
-      return UserProfileData.fromJson(
+      final profile = UserProfileData.fromJson(
         json.decode(response.body) as Map<String, dynamic>,
       );
+      // Posts live in the feed service, not the profile response.
+      if (profile.posts.isEmpty && profile.id.isNotEmpty) {
+        final posts = await _fetchUserPosts(profile.id, token);
+        if (posts.isNotEmpty) return profile.copyWithPosts(posts);
+      }
+      return profile;
     } else if (response.statusCode == 401) {
       await AppData().clearAuthToken();
       throw AuthException('Authentication token expired or invalid');
     } else {
       throw Exception('Failed to load profile: ${response.statusCode}');
+    }
+  }
+
+  // Feed service: GET /api/users/{authorId}/posts (ApiResponse-wrapped list).
+  static Future<List<FeedContent>> _fetchUserPosts(
+    String authorId,
+    String token,
+  ) async {
+    try {
+      final url = Uri.parse(
+        'http://36.253.137.34:8012/api/users/$authorId/posts',
+      );
+      final res = await http.get(url, headers: authHeaders(token));
+      if (res.statusCode != 200) return const [];
+      final decoded = json.decode(res.body);
+      final payload =
+          decoded is Map<String, dynamic> && decoded['data'] is Map
+              ? decoded['data'] as Map<String, dynamic>
+              : decoded;
+      final rawList =
+          payload is Map<String, dynamic>
+              ? (payload['results'] as List? ?? [])
+              : (payload is List ? payload : const []);
+      return rawList
+          .whereType<Map<String, dynamic>>()
+          .map((p) {
+            if (p['video'] != null) p['type'] = 'reel';
+            return FeedContent.fromNewApiPost(p);
+          })
+          .whereType<FeedContent>()
+          .where((c) => c.id.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
     }
   }
 
@@ -215,7 +295,7 @@ class UserProfileService {
           ..headers['authorization'] = 'Bearer $token'
           ..files.add(
             http.MultipartFile(
-              'avatar',
+              'file',
               http.ByteStream(imageFile.openRead()),
               await imageFile.length(),
               filename: filename,
@@ -229,10 +309,12 @@ class UserProfileService {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = json.decode(response.body) as Map<String, dynamic>;
+      // ProfileService returns the public avatar URL directly in "data".
+      final rawData = data['data'];
       final avatarPath =
+          (rawData is String ? rawData : null) ??
+          (rawData is Map ? rawData['avatar']?.toString() : null) ??
           data['avatar']?.toString() ??
-          data['data']?['avatar']?.toString() ??
-          data['data']?['picture']?.toString() ??
           '';
       if (avatarPath.isEmpty) throw Exception('No avatar URL in response');
       return avatarPath;
@@ -254,7 +336,10 @@ class UserProfileService {
     log('Followers API [${response.statusCode}]: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as Map<String, dynamic>;
-      final list = data['followers'] as List<dynamic>? ?? [];
+      final list =
+          data['data'] as List<dynamic>? ??
+          data['followers'] as List<dynamic>? ??
+          [];
       return list
           .whereType<Map<String, dynamic>>()
           .map(FollowerFollowing.fromNewApi)
@@ -277,7 +362,10 @@ class UserProfileService {
     log('Following API [${response.statusCode}]: ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as Map<String, dynamic>;
-      final list = data['following'] as List<dynamic>? ?? [];
+      final list =
+          data['data'] as List<dynamic>? ??
+          data['following'] as List<dynamic>? ??
+          [];
       return list
           .whereType<Map<String, dynamic>>()
           .map(FollowerFollowing.fromNewApi)
@@ -749,7 +837,7 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     ? const Icon(
                                       Icons.person,
                                       size: 60,
-                                      color: Color.fromRGBO(244, 135, 6, 1),
+                                      color: BrandColors.secondarySurface,
                                     )
                                     : null,
                           ),
@@ -766,7 +854,7 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: const BoxDecoration(
-                              color: Color.fromRGBO(244, 135, 6, 1),
+                              color: BrandColors.secondarySurface,
                               shape: BoxShape.circle,
                             ),
                             child:
@@ -845,7 +933,7 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       Text(
                                         '${counts.followers}',
                                         style: const TextStyle(
-                                          color: Color.fromRGBO(244, 135, 6, 1),
+                                          color: BrandColors.secondarySurface,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -871,7 +959,7 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       Text(
                                         '${counts.following}',
                                         style: const TextStyle(
-                                          color: Color.fromRGBO(244, 135, 6, 1),
+                                          color: BrandColors.secondarySurface,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -890,7 +978,7 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   '${contents.length}',
                                   'Posts',
                                   Icons.grid_on,
-                                  Colors.orange,
+                                  BrandColors.accent,
                                 ),
                               ],
                             ),
@@ -1021,154 +1109,159 @@ class UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final unreadCount = ref.watch(chatUnreadCountProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.whitecolor,
-      body: SafeArea(
-        child: CustomRefreshIndicator(
-          onRefresh: refresh,
-          child: NestedScrollView(
-            controller: scrollController,
-            headerSliverBuilder:
-                (context, innerBoxIsScrolled) => [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios),
-                        onPressed: () => Navigator.pop(context),
-                        alignment: Alignment.centerLeft,
+      backgroundColor: BrandColors.canvas,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AnimatedBlobBackground()),
+          SafeArea(
+            child: CustomRefreshIndicator(
+              onRefresh: refresh,
+              child: NestedScrollView(
+                controller: scrollController,
+                headerSliverBuilder:
+                    (context, innerBoxIsScrolled) => [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios),
+                            onPressed: () => Navigator.pop(context),
+                            alignment: Alignment.centerLeft,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: FutureBuilder<UserProfileData>(
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: FutureBuilder<UserProfileData>(
+                            future: profileFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const ProfileSkeleton();
+                              }
+                              if (snapshot.hasError) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.error_outline,
+                                        size: 48,
+                                        color: Colors.red,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Error loading profile',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ElevatedButton(
+                                        onPressed:
+                                            () => setState(() => loadProfile()),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              BrandColors.secondarySurface,
+                                        ),
+                                        child: const Text(
+                                          'Try Again',
+                                          style: TextStyle(
+                                            color: AppColors.whitecolor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              if (snapshot.hasData) {
+                                if (!postsLoaded) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (!mounted) return;
+                                    populatePostsFromProfile(snapshot.data!);
+                                    if (countsNotifier.value.followers == 0 &&
+                                        countsNotifier.value.following == 0) {
+                                      countsNotifier.value = (
+                                        followers:
+                                            snapshot.data!.followersCount,
+                                        following:
+                                            snapshot.data!.followingCount,
+                                      );
+                                    }
+                                  });
+                                }
+                                return buildProfileSection(snapshot.data!);
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                      ),
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: TabBarDelegate(
+                          TabBar(
+                            controller: tabController,
+                            labelColor: BrandColors.secondarySurface,
+                            unselectedLabelColor: Colors.grey,
+                            indicatorColor: BrandColors.secondarySurface,
+                            indicatorWeight: 2,
+                            tabs: const [
+                              Tab(
+                                child: Text(
+                                  'Posts',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Tab(
+                                child: Text(
+                                  'My Reels',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                body: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: TabBarView(
+                    controller: tabController,
+                    children: [
+                      buildPostsTab(),
+                      FutureBuilder<UserProfileData>(
                         future: profileFuture,
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const ProfileSkeleton();
-                          }
-                          if (snapshot.hasError) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.error_outline,
-                                    size: 48,
-                                    color: Colors.red,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Error loading profile',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ElevatedButton(
-                                    onPressed:
-                                        () => setState(() => loadProfile()),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromRGBO(
-                                        244,
-                                        135,
-                                        6,
-                                        1,
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Try Again',
-                                      style: TextStyle(
-                                        color: AppColors.whitecolor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          final userId = snapshot.data?.id ?? widget.userId;
+                          if (userId.isEmpty) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: BrandColors.secondarySurface,
                               ),
                             );
                           }
-                          if (snapshot.hasData) {
-                            if (!postsLoaded) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (!mounted) return;
-                                populatePostsFromProfile(snapshot.data!);
-                                if (countsNotifier.value.followers == 0 &&
-                                    countsNotifier.value.following == 0) {
-                                  countsNotifier.value = (
-                                    followers: snapshot.data!.followersCount,
-                                    following: snapshot.data!.followingCount,
-                                  );
-                                }
-                              });
-                            }
-                            return buildProfileSection(snapshot.data!);
-                          }
-                          return const SizedBox.shrink();
+                          return MyReelsScreen(userId: userId);
                         },
                       ),
-                    ),
+                    ],
                   ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: TabBarDelegate(
-                      TabBar(
-                        controller: tabController,
-                        labelColor: const Color.fromRGBO(244, 135, 6, 1),
-                        unselectedLabelColor: Colors.grey,
-                        indicatorColor: const Color.fromRGBO(244, 135, 6, 1),
-                        indicatorWeight: 2,
-                        tabs: const [
-                          Tab(
-                            child: Text(
-                              'Posts',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Tab(
-                            child: Text(
-                              'My Reels',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-            body: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: TabBarView(
-                controller: tabController,
-                children: [
-                  buildPostsTab(),
-                  FutureBuilder<UserProfileData>(
-                    future: profileFuture,
-                    builder: (context, snapshot) {
-                      final userId = snapshot.data?.id ?? widget.userId;
-                      if (userId.isEmpty) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Color.fromRGBO(244, 135, 6, 1),
-                          ),
-                        );
-                      }
-                      return MyReelsScreen(userId: userId);
-                    },
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
       floatingActionButton: CountBadgeFAB(
         count: unreadCount,
@@ -1196,7 +1289,7 @@ class ProfileOptionsSheet extends StatelessWidget {
     required this.formatDate,
   }) : super(key: key);
 
-  static const Color primary = Color.fromRGBO(244, 135, 6, 1);
+  static const Color primary = BrandColors.secondarySurface;
 
   @override
   Widget build(BuildContext context) {
@@ -1328,7 +1421,7 @@ class ProfileOptionsSheet extends StatelessWidget {
                   color:
                       isDestructive
                           ? Colors.red.shade100
-                          : const Color.fromRGBO(244, 135, 6, 0.1),
+                          : BrandColors.accent.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -1370,7 +1463,7 @@ class PersonalInfoSheet extends StatelessWidget {
     required this.formatDate,
   }) : super(key: key);
 
-  static const Color primary = Color.fromRGBO(244, 135, 6, 1);
+  static const Color primary = BrandColors.secondarySurface;
 
   @override
   Widget build(BuildContext context) {
@@ -1440,11 +1533,8 @@ class PersonalInfoSheet extends StatelessWidget {
                           horizontal: 12,
                           vertical: 6,
                         ),
-                        backgroundColor: const Color.fromRGBO(
-                          244,
-                          135,
-                          6,
-                          0.08,
+                        backgroundColor: BrandColors.accent.withValues(
+                          alpha: .10,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
@@ -1710,9 +1800,9 @@ class FollowersFollowingSheetState extends State<FollowersFollowingSheet> {
               ),
               TabBar(
                 controller: widget.tabController,
-                labelColor: const Color.fromRGBO(244, 135, 6, 1),
+                labelColor: BrandColors.secondarySurface,
                 unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color.fromRGBO(244, 135, 6, 1),
+                indicatorColor: BrandColors.secondarySurface,
                 tabs: const [
                   Tab(
                     child: Row(
@@ -1788,14 +1878,11 @@ class PersonTile extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: const Color.fromRGBO(235, 111, 70, 0.2),
+        backgroundColor: BrandColors.accent.withValues(alpha: .16),
         backgroundImage: pictureUrl != null ? NetworkImage(pictureUrl) : null,
         child:
             pictureUrl == null
-                ? const Icon(
-                  Icons.person,
-                  color: Color.fromRGBO(244, 135, 6, 1),
-                )
+                ? const Icon(Icons.person, color: BrandColors.secondarySurface)
                 : null,
       ),
       title: GestureDetector(
@@ -1841,7 +1928,7 @@ class ProfileInfoCard extends StatelessWidget {
     required this.icon,
   }) : super(key: key);
 
-  static const Color primary = Color.fromRGBO(244, 135, 6, 1);
+  static const Color primary = BrandColors.secondarySurface;
 
   @override
   Widget build(BuildContext context) {
@@ -1857,7 +1944,7 @@ class ProfileInfoCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color.fromRGBO(244, 135, 6, 0.1),
+              color: BrandColors.accent.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: primary, size: 20),

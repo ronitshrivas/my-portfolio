@@ -34,7 +34,7 @@ class GlobalChatListener {
   GlobalChatListener(this._ref);
 
   String get _token => AppData().accessToken ?? '';
-  static const _wsBase = 'ws://36.253.137.34:8005';
+  static const _wsBase = 'ws://36.253.137.34:8014';
 
   // ── Connect to all friends ────────────────────────────────────────────────
 

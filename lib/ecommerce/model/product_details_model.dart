@@ -32,25 +32,25 @@ class ProductDetailModel {
         .map((e) => ProductImageModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
+    final rawCategory = json['category_details'];
     return ProductDetailModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
       description: json['description']?.toString(),
-      price: json['price'] as String,
-      stock: json['stock'] as int,
+      price: (json['price'] ?? 0).toString(),
+      stock: (json['stock'] as num?)?.toInt() ?? 0,
       isActive: json['is_active'] as bool? ?? true,
-      category: json['category'] as String?,
-      categoryDetails: json['category_details'] != null
-          ? CategoryDetailModel.fromJson(
-              json['category_details'] as Map<String, dynamic>)
+      category: json['category']?.toString(),
+      categoryDetails: rawCategory is Map<String, dynamic>
+          ? CategoryDetailModel.fromJson(rawCategory)
           : null,
-      image: json['image'] as String?,
+      image: json['image']?.toString(),
       images: imagesList,
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'] as String)
+          ? DateTime.tryParse(json['created_at'].toString())
           : null,
       updatedAt: json['updated_at'] != null
-          ? DateTime.tryParse(json['updated_at'] as String)
+          ? DateTime.tryParse(json['updated_at'].toString())
           : null,
     );
   }
@@ -103,12 +103,12 @@ class CategoryDetailModel {
 
   factory CategoryDetailModel.fromJson(Map<String, dynamic> json) {
     return CategoryDetailModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      slug: json['slug'] as String,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      slug: json['slug']?.toString() ?? '',
       description: json['description']?.toString(),
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'] as String)
+          ? DateTime.tryParse(json['created_at'].toString())
           : null,
     );
   }
@@ -132,8 +132,8 @@ class ProductImageModel {
 
   factory ProductImageModel.fromJson(Map<String, dynamic> json) {
     return ProductImageModel(
-      id: json['id'] as int,
-      image: json['image'] as String,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      image: json['image']?.toString() ?? '',
     );
   }
 

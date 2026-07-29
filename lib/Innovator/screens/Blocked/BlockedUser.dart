@@ -62,12 +62,21 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
       developer.log('[Blocked] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> usersData = data['blocked_users'] ?? [];
+        final decoded = json.decode(response.body);
+        // ProfileService wraps the list: { success, message, data: [...] }.
+        final List<dynamic> usersData =
+            (decoded is Map && decoded['data'] is List)
+                ? decoded['data'] as List<dynamic>
+                : (decoded is Map
+                    ? (decoded['blocked_users'] as List<dynamic>? ?? [])
+                    : (decoded is List ? decoded : []));
         setState(() {
-          _blockedCount = data['blocked_count'] ?? 0;
+          _blockedCount = usersData.length;
           _blockedUsers =
-              usersData.map((j) => BlockedUser.fromJson(j)).toList();
+              usersData
+                  .whereType<Map<String, dynamic>>()
+                  .map((j) => BlockedUser.fromJson(j))
+                  .toList();
           _isLoading = false;
         });
       } else if (response.statusCode == 401) {
@@ -166,7 +175,7 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
       final token = AppData().accessToken;
       final response = await http
           .post(
-            Uri.parse('${ApiConstants.unblockuser}${user.id}/unblock/'),
+            Uri.parse('${ApiConstants.unblockuser}${user.id}/unblock'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',

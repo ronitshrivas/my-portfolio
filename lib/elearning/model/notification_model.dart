@@ -10,8 +10,8 @@ class ElearningNotificationData {
 
   factory ElearningNotificationData.fromJson(Map<String, dynamic> json) {
     return ElearningNotificationData(
-      type: json['type'] as String,
-      courseId: json['course_id'] as String,
+      type: json['type']?.toString() ?? '',
+      courseId: json['course_id']?.toString() ?? '',
     );
   }
 
@@ -41,15 +41,18 @@ class ElearningNotificationModel {
   });
 
   factory ElearningNotificationModel.fromJson(Map<String, dynamic> json) {
+    final rawData = json['data'];
     return ElearningNotificationModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      message: json['message'] as String,
-      notificationType: json['notification_type'] as String,
-      isRead: json['is_read'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      notificationType: json['notification_type']?.toString() ?? '',
+      isRead: json['is_read'] as bool? ?? false,
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
       data: ElearningNotificationData.fromJson(
-        json['data'] as Map<String, dynamic>,
+        rawData is Map<String, dynamic> ? rawData : const {},
       ),
     );
   }

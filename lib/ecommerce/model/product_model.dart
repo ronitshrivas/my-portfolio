@@ -22,21 +22,19 @@ class ProductModel {
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    final rawCategory = json['category_details'];
     return ProductModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      price: json['price'] as String,
-      stock: json['stock'] as int,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      description: json['description']?.toString(),
+      price: (json['price'] ?? 0).toString(),
+      stock: (json['stock'] as num?)?.toInt() ?? 0,
       isActive: json['is_active'] as bool? ?? true,
-      category: json['category'] as String?,
-      categoryDetails:
-          json['category_details'] != null
-              ? CategoryDetails.fromJson(
-                json['category_details'] as Map<String, dynamic>,
-              )
-              : null,
-      image: json['image'] as String?,
+      category: json['category']?.toString(),
+      categoryDetails: rawCategory is Map<String, dynamic>
+          ? CategoryDetails.fromJson(rawCategory)
+          : null,
+      image: json['image']?.toString(),
     );
   }
 
@@ -55,9 +53,16 @@ class ProductModel {
   }
 
   static List<ProductModel> fromJsonList(List<dynamic> jsonList) {
-    return jsonList
-        .map((item) => ProductModel.fromJson(item as Map<String, dynamic>))
-        .toList();
+    final products = <ProductModel>[];
+    for (final item in jsonList) {
+      if (item is! Map<String, dynamic>) continue;
+      try {
+        products.add(ProductModel.fromJson(item));
+      } catch (_) {
+        // Skip a malformed entry rather than dropping the whole list.
+      }
+    }
+    return products;
   }
 
   @override
@@ -83,11 +88,11 @@ class CategoryDetails {
 
   factory CategoryDetails.fromJson(Map<String, dynamic> json) {
     return CategoryDetails(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      slug: json['slug'] as String,
-      description: json['description'] as String?,
-      createdAt: json['created_at'] as String,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      slug: json['slug']?.toString() ?? '',
+      description: json['description']?.toString(),
+      createdAt: json['created_at']?.toString() ?? '',
     );
   }
 }

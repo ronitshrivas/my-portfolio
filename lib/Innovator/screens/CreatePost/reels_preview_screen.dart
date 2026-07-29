@@ -40,7 +40,7 @@ class _ReelsPreviewScreenState extends ConsumerState<ReelsPreviewScreen>
   AudioPlayer? _musicPlayer;
   bool _musicPlaying = false;
 
-  static const String _reelsApi = 'http://36.253.137.34:8005/api/reels/';
+  static const String _reelsApi = 'http://36.253.137.34:8012/api/reels/';
   final Color _orange = const Color.fromRGBO(244, 135, 6, 1);
 
   @override
@@ -881,7 +881,7 @@ class _MusicWaveSmallState extends State<_MusicWaveSmall>
 //   AudioPlayer? _musicPlayer;
 //   bool _musicPlaying = false;
 
-//   static const String _reelsApi = 'http://36.253.137.34:8005/api/reels/';
+//   static const String _reelsApi = 'http://36.253.137.34:8012/api/reels/';
 //   final Color _orange = const Color.fromRGBO(244, 135, 6, 1);
 
 //   @override

@@ -9,11 +9,14 @@ import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:innovator/Innovator/App_data/App_data.dart';
+import 'package:innovator/Innovator/Authorization/auth_result.dart';
 import 'package:innovator/Innovator/Authorization/Forget_PWD.dart';
 import 'package:innovator/Innovator/Authorization/signup.dart';
 import 'package:innovator/Innovator/constant/api_constants.dart';
 import 'package:innovator/Innovator/constant/app_colors.dart';
 import 'package:innovator/Innovator/helper/dialogs.dart';
+import 'package:innovator/Innovator/newui/services/auth_session.dart';
+import 'package:innovator/Innovator/ui/ui.dart';
 import 'package:innovator/Innovator/services/fcm_services.dart';
 import 'package:innovator/ecommerce/provider/notificationProvider.dart';
 import 'package:innovator/elearning/provider/notificationProvider.dart';
@@ -30,7 +33,7 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final Color _orange = const Color.fromRGBO(244, 135, 6, 1);
+  final Color _orange = BrandColors.secondarySurface;
 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
@@ -126,26 +129,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final auth = AuthResult.fromResponseBody(response.body);
+        final user = auth.user;
 
-        final accessToken = data['access_token']?.toString() ?? '';
-        final refreshToken = data['refresh_token']?.toString() ?? '';
-        final user = (data['user'] as Map<String, dynamic>?) ?? {};
-
-        if (accessToken.isEmpty) {
+        if (!auth.hasToken) {
           Dialogs.showSnackbar(context, 'Login failed: no token in response');
           return;
         }
 
         await AppData().saveLoginData(
-          accessToken: accessToken,
-          refreshToken: refreshToken,
+          accessToken: auth.accessToken,
+          refreshToken: auth.refreshToken,
           user: user,
         );
+        // Keep the new UI's API session in step with the fresh login.
+        AuthSession.instance.syncFromAppData();
 
-        developer.log(
-          'Login saved — access_token: ${accessToken.substring(0, 30)}...',
-        );
+        developer.log('Login saved for ${user['username'] ?? user['email']}');
         developer.log('User: $user');
         await _saveCredentials();
         if (!mounted) return;
@@ -275,29 +275,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
       developer.log('googgle id token : $googleIdToken');
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final auth = AuthResult.fromResponseBody(response.body);
+        final user = auth.user;
 
-        // Handles multiple common token key patterns from backends
-        final accessToken =
-            data['access_token']?.toString() ??
-            data['token']?.toString() ??
-            (data['tokens'] as Map<String, dynamic>?)?['access']?.toString() ??
-            '';
-
-        final refreshToken =
-            data['refresh_token']?.toString() ??
-            (data['tokens'] as Map<String, dynamic>?)?['refresh']?.toString() ??
-            '';
-
-        final user =
-            (data['user'] as Map<String, dynamic>?) ??
-            (data['data'] as Map<String, dynamic>?) ??
-            {};
-
-        if (accessToken.isEmpty) {
-          developer.log(
-            'SSO: no token in response. Keys: ${data.keys.toList()}',
-          );
+        if (!auth.hasToken) {
+          developer.log('SSO: no token in response body: ${response.body}');
           if (mounted) {
             Dialogs.showSnackbar(
               context,
@@ -310,10 +292,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
         // Save auth data — identical path to email/password login
         await AppData().saveLoginData(
-          accessToken: accessToken,
-          refreshToken: refreshToken,
+          accessToken: auth.accessToken,
+          refreshToken: auth.refreshToken,
           user: user,
         );
+        // Keep the new UI's API session in step with the fresh login.
+        AuthSession.instance.syncFromAppData();
 
         developer.log('SSO login saved. User: $user');
 
@@ -418,14 +402,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return Theme(
       data: ThemeData(primaryColor: _orange),
       child: Scaffold(
+        backgroundColor: BrandColors.canvas,
         body: Stack(
           children: [
-            // Orange header
+            const Positioned.fill(child: AnimatedBlobBackground()),
+            // Brand header
             Container(
               width: mq.width,
               height: mq.height / 2.0,
               decoration: const BoxDecoration(
-                color: Color.fromRGBO(244, 135, 6, 1),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    BrandColors.secondarySurface,
+                    Color(0xFF10233B),
+                  ],
+                ),
                 borderRadius: BorderRadius.only(
                   bottomRight: Radius.circular(70),
                 ),
@@ -466,9 +459,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Container(
                 width: mq.width,
                 height: mq.height / 1.6,
-                decoration: const BoxDecoration(
-                  color: AppColors.whitecolor,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(70)),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .82),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(70),
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .85),
+                    width: 1,
+                  ),
                 ),
                 child: Padding(
                   padding: EdgeInsets.only(
@@ -747,7 +746,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color.fromRGBO(244, 135, 6, 1)),
+      borderSide: const BorderSide(color: BrandColors.accent, width: 1.4),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),

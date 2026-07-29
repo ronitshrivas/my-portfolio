@@ -19,7 +19,7 @@ const Color _kOrangeLight = Color.fromRGBO(244, 135, 6, 0.12);
 // ─────────────────────────────────────────────────────────────────────────────
 
 class RepostApiService {
-  static const String _baseUrl = 'http://36.253.137.34:8005';
+  static const String _baseUrl = 'http://36.253.137.34:8012';
 
   static Map<String, String> _headers() {
     final token = AppData().accessToken ?? '';
