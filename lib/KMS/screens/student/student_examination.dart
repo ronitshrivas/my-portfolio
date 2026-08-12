@@ -39,15 +39,15 @@ class _StudentExaminationScreen extends ConsumerState<StudentExaminationScreen>
           Text('View Upcoming exam, attempt quizzes and check your result.'),
           SizedBox(height: 15),
 
-          listTile('Upcoming Exams', '4', 'assets/kms/upcoming_exams.png'),
+          listTile('Upcoming Exams', '4', 'Assets/kms/upcoming_exams.png'),
           listTile(
             'Completed',
             '1',
-            'assets/kms/right.png',
+            'Assets/kms/right.png',
             color: Colors.green,
           ),
-          listTile('Current Score', '8/10', 'assets/kms/current_score.png'),
-          listTile('Average', '80.0 %', 'assets/kms/average.png'),
+          listTile('Current Score', '8/10', 'Assets/kms/current_score.png'),
+          listTile('Average', '80.0 %', 'Assets/kms/average.png'),
           SizedBox(height: 20),
           Container(
             height: 500,
@@ -92,23 +92,36 @@ class _StudentExaminationScreen extends ConsumerState<StudentExaminationScreen>
               ],
             ),
           ),
-          SizedBox(height: 20,),
+          SizedBox(height: 20),
           Card(
             color: Colors.white,
             elevation: 5,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15)
+              borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-             padding: EdgeInsets.only(top: 15,bottom: 25,right: 15,left: 15),
+              padding: EdgeInsets.only(
+                top: 15,
+                bottom: 25,
+                right: 15,
+                left: 15,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Important Notes:', style: TextStyle(fontFamily: 'Inter',fontSize: 16.4)),
-                  SizedBox(height: 10,),
+                  Text(
+                    'Important Notes:',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 16.4),
+                  ),
+                  SizedBox(height: 10),
                   Text(
                     '''1. Keep checking this page regularly for updates and announcements\n2. Contact the instructor if you have any queries regarding examinations\n3. Make sure to review the syllabus and grading criteria\n4. Results will be published within 2 weeks of examination''',
-               style: TextStyle(fontSize: 14.8,fontStyle: FontStyle.normal,fontWeight: FontWeight.w500,color: Colors.black),
+                    style: TextStyle(
+                      fontSize: 14.8,
+                      fontStyle: FontStyle.normal,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
                   ),
                 ],
               ),
@@ -203,7 +216,7 @@ class _StudentExaminationScreen extends ConsumerState<StudentExaminationScreen>
                               mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Image.asset('assets/kms/assignment.png'),
+                                Image.asset('Assets/kms/assignment.png'),
                                 SizedBox(width: 10),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

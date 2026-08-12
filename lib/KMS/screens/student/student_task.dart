@@ -47,7 +47,6 @@ class StudentTaskScreen extends ConsumerWidget {
             'November 25, 2025- 11:59 P.M.,Tuesday',
             77, //completedvalue
             23, //pendingValue
-      
           ),
         ],
       ),
@@ -61,11 +60,13 @@ class StudentTaskScreen extends ConsumerWidget {
     String date,
     int completedPercentage,
     int pendingPercentage,
-   
   ) {
     return GestureDetector(
       onTap: () {
-        Get.to(()=> StudentTaskDetailsScreen(),transition: Transition.leftToRight);
+        Get.to(
+          () => StudentTaskDetailsScreen(),
+          transition: Transition.leftToRight,
+        );
         // Navigator.push(
         //   context,
         //   MaterialPageRoute(builder: (context) => StudentTaskDetailsScreen()),
@@ -171,7 +172,11 @@ class StudentTaskScreen extends ConsumerWidget {
                     ),
                     child: Row(
                       children: [
-                        Image.asset('assets/kms/time.png', height: 20, width: 20),
+                        Image.asset(
+                          'Assets/kms/time.png',
+                          height: 20,
+                          width: 20,
+                        ),
                         SizedBox(width: 20),
                         Text(
                           date,

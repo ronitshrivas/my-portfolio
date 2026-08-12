@@ -8,7 +8,7 @@ void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // OPTION 1: If InnovatorHomePage requires a String title
     await tester.pumpWidget(
-      ProviderScope(child: MaterialApp(home: InnovatorHomePage())),
+      ProviderScope(child: MaterialApp(home: InnovatorApp())),
     );
 
     // OPTION 2: If InnovatorHomePage requires named parameters
@@ -71,7 +71,7 @@ void main() {
           // userProvider.overrideWith((ref) => mockUserData),
         ],
         child: MaterialApp(
-          home: InnovatorHomePage(
+          home: InnovatorApp(
             // Pass your mock data or required parameters
 
             // userData: mockUserData,
@@ -97,7 +97,7 @@ void main() {
   testWidgets('Integration test', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        child: InnovatorHomePage(), // Test the entire app
+        child: InnovatorApp(), // Test the entire app
       ),
     );
 

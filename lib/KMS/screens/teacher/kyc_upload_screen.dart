@@ -215,7 +215,7 @@ class _KycUploadScreenState extends ConsumerState<KycUploadScreen>
 
   Future<void> _pickFile(void Function(File) onPicked) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
       );

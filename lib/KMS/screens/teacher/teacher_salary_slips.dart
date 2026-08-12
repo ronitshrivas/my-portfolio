@@ -8,8 +8,6 @@ import 'package:innovator/KMS/model/teacher_model/teacher_salary_slips.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
- 
-
 class SkeletonSlipCard extends StatefulWidget {
   final int index;
   const SkeletonSlipCard({required this.index});
@@ -179,11 +177,13 @@ class SlipCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 GestureDetector(
-                    onTap:
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => InvoiceDetailScreen(slip: slip)),
-          ),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => InvoiceDetailScreen(slip: slip),
+                        ),
+                      ),
                   child: Row(
                     children: [
                       Icon(
@@ -551,7 +551,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Image.asset(
-                          'assets/kms/nepatronix.png',
+                          'Assets/kms/nepatronix.png',
                           width: 120,
                           height: 100,
                           fit: BoxFit.contain,

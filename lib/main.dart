@@ -1,334 +1,63 @@
-import 'dart:async';
-import 'dart:convert';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:innovator/Innovator/App_data/App_data.dart';
-import 'package:innovator/Innovator/ui/ui.dart';
-import 'package:innovator/Innovator/hive/feed_cache_service.dart';
-import 'package:innovator/Innovator/provider/global_chat_listener.dart';
-import 'package:innovator/Innovator/provider/notification_provider.dart';
-import 'package:innovator/Innovator/screens/Likes/hive_reaction_queue.dart';
-import 'package:innovator/Innovator/screens/Splash_Screen/splash_screen.dart';
-import 'package:innovator/Innovator/services/fcm_services.dart';
-import 'package:innovator/Innovator/services/notification_navigation_service.dart'; // ← NEW
-import 'package:innovator/Innovator/utils/routing.dart';
-import 'package:innovator/KMS/screens/auth/login_screen.dart';
-import 'package:innovator/KMS/screens/dashboard/admin_dashboard_screen.dart';
-import 'package:innovator/KMS/screens/dashboard/teacher_dashboard_screen.dart';
-import 'package:innovator/KMS/screens/student/student_attendance_screen.dart';
-import 'package:innovator/ecommerce/provider/notificationProvider.dart';
-import 'dart:developer' as developer;
-import 'package:innovator/ecommerce/screens/Shop/Shop_Page.dart';
-import 'package:innovator/elearning/provider/notificationProvider.dart';
-
-late Size mq;
-GlobalKey<NavigatorState> get navigatorKey => Get.key;
-
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  developer.log('Background notification: ${message.notification?.title}');
-}
+import 'package:innovator/firebase_options.dart';
+import 'core/cache/hive_cache.dart';
+import 'splash_page.dart';
+import 'services/auth_session.dart';
+import 'services/push_service.dart';
+import 'theme/brand_colors.dart';
 
 void main() async {
-  runZonedGuarded(
-    () async {
-      try {
-        //developer.log('App starting...');
-        WidgetsFlutterBinding.ensureInitialized();
-        await Hive.initFlutter();
-        await HiveReactionQueue.instance.init();
-        await FeedCacheService.instance.init();
-        SystemChrome.setSystemUIOverlayStyle(
-          const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-          ),
-        );
-
-        await Firebase.initializeApp();
-        FirebaseMessaging.onBackgroundMessage(
-          _firebaseMessagingBackgroundHandler,
-        );
-
-        runApp(ProviderScope(child: InnovatorHomePage()));
-      } catch (e, stackTrace) {
-        runApp(const ProviderScope(child: InnovatorHomePage()));
-      }
-    },
-    (error, stackTrace) {
-      developer.log('Uncaught error: $error\n$stackTrace');
-    },
+  WidgetsFlutterBinding.ensureInitialized();
+  // Larger decoded-image cache so feed scroll stays smooth.
+  PaintingBinding.instance.imageCache.maximumSize = 280;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await PushService.instance.initLocalNotifications();
+  await HiveCache.init();
+  await AuthSession.instance.load();
+  // If already signed in, register for push right away.
+  if (AuthSession.instance.isSignedIn) {
+    PushService.instance.init();
+  }
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+    ),
   );
+  // ProviderScope enables Riverpod app-wide without changing any UI.
+  runApp(const ProviderScope(child: InnovatorApp()));
 }
 
-class InnovatorHomePage extends ConsumerStatefulWidget {
-  const InnovatorHomePage({super.key});
-
-  @override
-  ConsumerState<InnovatorHomePage> createState() => _InnovatorHomePageState();
-}
-
-class _InnovatorHomePageState extends ConsumerState<InnovatorHomePage>
-    with WidgetsBindingObserver {
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
-  bool _localNotificationsInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    developer.log('InnovatorHomePage initialized');
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _setupFCM();
-      ref.read(notificationProvider.notifier).startPolling();
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      ref
-          .read(elearningNotificationServiceProvider)
-          .registerFcmToken(fcmToken ?? '');
-      ref
-          .read(ecommerceNotificationServiceProvider)
-          .registerFcmToken(fcmToken ?? '');
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(globalChatListenerProvider);
-    });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  Future<void> _setupFCM() async {
-    try {
-      const androidSettings = AndroidInitializationSettings(
-        '@mipmap/ic_launcher',
-      );
-      const iosSettings = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
-      const initSettings = InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
-      );
-
-      await _localNotifications.initialize(
-        initSettings,
-        // FIX: Foreground notification tap now properly navigates
-        onDidReceiveNotificationResponse: (NotificationResponse details) {
-          developer.log('Local notification tapped: ${details.payload}');
-          if (details.payload != null) {
-            try {
-              final data = jsonDecode(details.payload!) as Map<String, dynamic>;
-              // Use a small delay so the navigator is ready
-              Future.delayed(
-                const Duration(milliseconds: 300),
-                () => NotificationNavigationService.handlePayload(data),
-              );
-            } catch (e) {
-              developer.log('Payload parse error: $e');
-            }
-          }
-        },
-      );
-
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'high_importance_channel',
-        'High Importance Notifications',
-        description: 'This channel is used for important notifications',
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(channel);
-
-      _localNotificationsInitialized = true;
-      developer.log('Local notifications initialized');
-
-      NotificationSettings settings = await FirebaseMessaging.instance
-          .requestPermission(alert: true, badge: true, sound: true);
-      developer.log('FCM permission: ${settings.authorizationStatus}');
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        developer.log('User denied notification permission');
-        return;
-      }
-      await FirebaseMessaging.instance
-          .setForegroundNotificationPresentationOptions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
-
-      final accessToken = AppData().accessToken;
-      if (accessToken != null && accessToken.isNotEmpty) {
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null) {
-          await Future.wait([
-            FCMService().registerToken(),
-            ref
-                .read(elearningNotificationServiceProvider)
-                .registerFcmToken(fcmToken),
-            ref
-                .read(ecommerceNotificationServiceProvider)
-                .registerFcmToken(fcmToken),
-          ]);
-        }
-      } else {
-        developer.log('FCM: Skipping — user not logged in');
-      }
-
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-        developer.log('FCM Token refreshed: $newToken');
-        await Future.wait([
-          FCMService().registerToken(),
-          ref
-              .read(elearningNotificationServiceProvider)
-              .registerFcmToken(newToken),
-          ref
-              .read(ecommerceNotificationServiceProvider)
-              .registerFcmToken(newToken),
-        ]);
-      });
-
-      // FIX: Foreground FCM messages now show with full payload
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        _showForegroundNotification(message);
-      });
-
-      // FIX: Background tap (app was in background) now navigates
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        developer.log('Notification tapped from background');
-        _handleNotificationTap(message);
-      });
-
-      // FIX: Killed-state tap (app was terminated) now navigates
-      RemoteMessage? initialMessage =
-          await FirebaseMessaging.instance.getInitialMessage();
-      if (initialMessage != null) {
-        developer.log('App opened from killed state via notification');
-        // Longer delay for killed state — navigator needs more time to mount
-        await Future.delayed(const Duration(milliseconds: 1000));
-        _handleNotificationTap(initialMessage);
-      }
-
-      developer.log('FCM setup completed');
-    } catch (e) {
-      developer.log('FCM setup error: $e');
-    }
-  }
-
-  void _showForegroundNotification(RemoteMessage message) {
-    try {
-      if (!_localNotificationsInitialized) {
-        developer.log('Local notifications not initialized yet');
-        return;
-      }
-      final title =
-          message.notification?.title ??
-          message.data['title']?.toString() ??
-          message.data['senderName']?.toString() ??
-          'New Notification';
-      final body =
-          message.notification?.body ??
-          message.data['body']?.toString() ??
-          message.data['message']?.toString() ??
-          '';
-
-      developer.log('Showing local notification — title: $title, body: $body');
-
-      // Build the payload from ALL data fields so navigation works
-      final payload = Map<String, dynamic>.from(message.data);
-
-      final androidDetails = AndroidNotificationDetails(
-        'high_importance_channel',
-        'High Importance Notifications',
-        channelDescription: 'This channel is used for important notifications',
-        importance: Importance.max,
-        priority: Priority.max,
-        playSound: true,
-        enableVibration: true,
-        visibility: NotificationVisibility.public,
-        icon: '@mipmap/ic_launcher',
-        fullScreenIntent: false,
-        ticker: title,
-      );
-      const iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
-
-      _localNotifications.show(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        title,
-        body,
-        NotificationDetails(android: androidDetails, iOS: iosDetails),
-        // FIX: pass the full data map so tapping can navigate
-        payload: jsonEncode(payload),
-      );
-      developer.log('Local notification shown');
-    } catch (e) {
-      developer.log('Show foreground notification error: $e');
-    }
-  }
-
-  void _handleNotificationTap(RemoteMessage message) {
-    _handleNotificationData(message.data);
-  }
-
-  /// FIX: was completely empty — now delegates to NotificationNavigationService
-  void _handleNotificationData(Map<String, dynamic> data) {
-    try {
-      developer.log('_handleNotificationData: $data');
-      NotificationNavigationService.handlePayload(data);
-    } catch (e) {
-      developer.log('Handle notification data error: $e');
-    }
-  }
+class InnovatorApp extends StatelessWidget {
+  const InnovatorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    mq = MediaQuery.of(context).size;
-
-    return GetMaterialApp(
-      navigatorObservers: [
-        routeObserver,
-      ], // ← NEW: Add route observer for navigation tracking
-      navigatorKey: navigatorKey,
-      home: SplashScreen(),
-      routes: {
-        '/kms/login': (_) => KmsLoginScreen(),
-        '/kms/adminDasboard': (_) => AdminDashboardScreen(),
-        '/kms/partnerDashboard': (_) => TeacherDashboardScreen(),
-        '/kms/studentDashboard': (_) => StudentAttendanceScreen(),
-      },
+    return MaterialApp(
       title: 'Innovator',
-      theme: _buildAppTheme(),
       debugShowCheckedModeBanner: false,
-      getPages: [GetPage(name: '/shop', page: () => const ShopPage())],
+      navigatorKey: PushService.navigatorKey,
+      theme: _buildTheme(),
+      home: const SplashPage(),
     );
   }
 
-  ThemeData _buildAppTheme() {
-    return ThemeData(
-      fontFamily: 'InterThin',
+  /// Light theme with Plus Jakarta Sans as the app-wide typeface. Colors stay
+  /// entirely on [BrandColors]; only the font family and letter-spacing change.
+  ThemeData _buildTheme() {
+    final base = ThemeData(
       brightness: Brightness.light,
       scaffoldBackgroundColor: BrandColors.canvas,
+      // App-wide bundled font. Every weight is registered in pubspec, so
+      // FontWeight.w100..w900 all resolve to the right Inter file.
+      fontFamily: 'Inter',
       colorScheme: ColorScheme.fromSeed(
         seedColor: BrandColors.accent,
         primary: BrandColors.secondarySurface,
@@ -338,30 +67,30 @@ class _InnovatorHomePageState extends ConsumerState<InnovatorHomePage>
         onSecondary: BrandColors.secondarySurface,
         brightness: Brightness.light,
       ),
-      primaryColor: BrandColors.secondarySurface,
       splashFactory: NoSplash.splashFactory,
-      appBarTheme: const AppBarTheme(
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: TextStyle(
-          color: BrandColors.ink,
-          fontWeight: FontWeight.w700,
-          fontSize: 19,
-        ),
-        backgroundColor: Colors.transparent,
-        foregroundColor: BrandColors.ink,
-        iconTheme: IconThemeData(color: BrandColors.ink),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: BrandColors.secondarySurface,
-          foregroundColor: BrandColors.text,
-        ),
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: BrandColors.secondarySurface,
-        foregroundColor: BrandColors.text,
-      ),
+    );
+
+    final textTheme = base.textTheme
+        .apply(bodyColor: BrandColors.text, displayColor: BrandColors.text);
+
+    return base.copyWith(
+      textTheme: _withSpacing(textTheme),
+      primaryTextTheme: _withSpacing(textTheme),
     );
   }
+
+  /// Slightly tightens headings and opens up body text for a cleaner rhythm.
+  TextTheme _withSpacing(TextTheme t) => t.copyWith(
+        displayLarge: t.displayLarge?.copyWith(letterSpacing: -0.5),
+        displayMedium: t.displayMedium?.copyWith(letterSpacing: -0.5),
+        displaySmall: t.displaySmall?.copyWith(letterSpacing: -0.4),
+        headlineLarge: t.headlineLarge?.copyWith(letterSpacing: -0.4),
+        headlineMedium: t.headlineMedium?.copyWith(letterSpacing: -0.3),
+        headlineSmall: t.headlineSmall?.copyWith(letterSpacing: -0.3),
+        titleLarge: t.titleLarge?.copyWith(letterSpacing: -0.2),
+        titleMedium: t.titleMedium?.copyWith(letterSpacing: -0.1),
+        bodyLarge: t.bodyLarge?.copyWith(letterSpacing: 0.1, height: 1.45),
+        bodyMedium: t.bodyMedium?.copyWith(letterSpacing: 0.1, height: 1.45),
+        labelLarge: t.labelLarge?.copyWith(letterSpacing: 0.2),
+      );
 }

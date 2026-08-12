@@ -12,8 +12,17 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- <uses-permission android:name="android.permission.RECORD_AUDIO" /> -->
     <!-- <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" /> -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Legacy storage (Android 12 and below). maxSdkVersion so Play Store is happy. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29"
+        tools:replace="android:maxSdkVersion" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Android 13+ (API 33) granular media access — required for the gallery picker. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Android 14+ (API 34) partial "selected photos" access. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     
     <!-- Phone and Call Permissions -->
     <!-- <uses-permission android:name="android.permission.CALL_PHONE" />

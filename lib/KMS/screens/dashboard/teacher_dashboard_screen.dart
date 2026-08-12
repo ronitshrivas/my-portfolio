@@ -69,7 +69,7 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
 
       if (mounted) _showSnack('Checked in successfully!', isError: false);
     } catch (e) {
-      if (mounted);
+      if (mounted) ;
     } finally {
       setState(() => _loadingMap[schoolId] = false);
     }
@@ -671,7 +671,7 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                         child: Row(
                           children: [
                             Image.asset(
-                              'assets/kms/school.png',
+                              'Assets/kms/school.png',
                               height: 15,
                               width: 15,
                               color: AppStyle.primaryColor,

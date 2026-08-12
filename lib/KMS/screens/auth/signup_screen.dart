@@ -7,8 +7,6 @@ import 'package:innovator/KMS/provider/auth_provider.dart';
 import 'package:innovator/KMS/provider/constant_provider.dart';
 import 'package:innovator/KMS/screens/auth/login_screen.dart';
 
-
-
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
 
@@ -70,7 +68,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             height: double.infinity,
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/kms/auth_backgroundimage.png'),
+                image: AssetImage('Assets/kms/auth_backgroundimage.png'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -109,7 +107,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                   width: 50,
                                   color: AppStyle.primaryColor,
                                   child: Image.asset(
-                                    'assets/kms/settings.png',
+                                    'Assets/kms/settings.png',
                                     color: Colors.white,
                                   ),
                                 ),

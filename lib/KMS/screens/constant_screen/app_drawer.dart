@@ -34,38 +34,38 @@ class DrawerItemData {
 const List<DrawerItemData> _teacherDrawerItems = [
   DrawerItemData(
     title: 'Dashboard',
-    image: 'assets/kms/drawer/tutor.png',
+    image: 'Assets/kms/drawer/tutor.png',
     screen: TeacherDashboardScreen(),
   ),
   DrawerItemData(
     title: 'Attendance',
-    image: 'assets/kms/drawer/attendance.png',
+    image: 'Assets/kms/drawer/attendance.png',
     screen: TeacherSchoolAttendanceScreen(),
   ),
   DrawerItemData(
     title: 'Add Student',
-    image: 'assets/kms/drawer/progresstracking.png',
+    image: 'Assets/kms/drawer/progresstracking.png',
     screen: AddStudentScreen(),
   ),
   DrawerItemData(
     title: 'KYC Verification',
-    image: 'assets/kms/drawer/teacher.png',
+    image: 'Assets/kms/drawer/teacher.png',
     screen: KycUploadScreen(),
   ),
 
   DrawerItemData(
     title: 'Invoice',
-    image: 'assets/kms/drawer/salary.png',
+    image: 'Assets/kms/drawer/salary.png',
     screen: InvoiceScreen(),
   ),
   DrawerItemData(
     title: 'Attendance History',
-    image: 'assets/kms/drawer/invoice.png',
+    image: 'Assets/kms/drawer/invoice.png',
     screen: TeacherAttendanceScreen(),
   ),
   DrawerItemData(
     title: "My review",
-    image: 'assets/kms/drawer/review.png',
+    image: 'Assets/kms/drawer/review.png',
     screen: TeacherReviewsScreen(),
   ),
 ];
@@ -73,22 +73,22 @@ const List<DrawerItemData> _teacherDrawerItems = [
 final List<DrawerItemData> _coordinatorDrawerItems = [
   const DrawerItemData(
     title: 'Dashboard',
-    image: 'assets/kms/drawer/tutor.png',
+    image: 'Assets/kms/drawer/tutor.png',
     screen: CoordinatorDashboardScreen(),
   ),
   const DrawerItemData(
     title: 'Attendance Approval',
-    image: 'assets/kms/drawer/attendance.png',
+    image: 'Assets/kms/drawer/attendance.png',
     screen: CoordinatorAttendanceApprovalScreen(),
   ),
   DrawerItemData(
     title: 'Teaching Logs',
-    image: 'assets/kms/drawer/progresstracking.png',
+    image: 'Assets/kms/drawer/progresstracking.png',
     screen: CoordinatorSessionsScreen(),
   ),
   DrawerItemData(
     title: 'Invoices',
-    image: 'assets/kms/drawer/invoice.png',
+    image: 'Assets/kms/drawer/invoice.png',
     screen: CoordinatorInvoiceScreen(),
   ),
 ];
@@ -96,13 +96,13 @@ final List<DrawerItemData> _coordinatorDrawerItems = [
 const List<DrawerItemData> _studentDrawerItems = [
   DrawerItemData(
     title: 'Dashboard',
-    image: 'assets/kms/drawer/attendance.png',
+    image: 'Assets/kms/drawer/attendance.png',
     screen: StudentAttendanceScreen(),
   ),
 
   DrawerItemData(
     title: 'Homework',
-    image: 'assets/kms/drawer/activities.png',
+    image: 'Assets/kms/drawer/activities.png',
     screen: HomeworkScreen(),
   ),
 ];

@@ -103,7 +103,7 @@ class _KmsLoginScreenState extends ConsumerState<KmsLoginScreen> {
             height: double.infinity,
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/kms/auth_backgroundimage.png'),
+                image: AssetImage('Assets/kms/auth_backgroundimage.png'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -140,7 +140,7 @@ class _KmsLoginScreenState extends ConsumerState<KmsLoginScreen> {
                                 width: 50,
                                 color: AppStyle.primaryColor,
                                 child: Image.asset(
-                                  'assets/kms/settings.png',
+                                  'Assets/kms/settings.png',
                                   color: Colors.white,
                                 ),
                               ),

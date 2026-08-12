@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:innovator/Innovator/widget/Custom_refresh_Indicator.dart';
 import 'package:innovator/KMS/model/notification_model.dart';
-import 'package:innovator/KMS/provider/notificationProvider.dart'; 
+import 'package:innovator/KMS/provider/notificationProvider.dart';
 
 class KMSNotificationScreen extends ConsumerStatefulWidget {
   const KMSNotificationScreen({super.key});
@@ -12,8 +11,7 @@ class KMSNotificationScreen extends ConsumerStatefulWidget {
       _KMSNotificationScreenState();
 }
 
-class _KMSNotificationScreenState
-    extends ConsumerState<KMSNotificationScreen> {
+class _KMSNotificationScreenState extends ConsumerState<KMSNotificationScreen> {
   @override
   void initState() {
     super.initState();
@@ -26,10 +24,9 @@ class _KMSNotificationScreenState
     final notifications = state.notifications;
 
     return Material(
-      child: CustomRefreshIndicator(
+      child: RefreshIndicator(
         onRefresh:
-            () =>
-                ref.read(kmsNotificationListProvider.notifier).refresh(),
+            () => ref.read(kmsNotificationListProvider.notifier).refresh(),
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(

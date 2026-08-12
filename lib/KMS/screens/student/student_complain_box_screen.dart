@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:innovator/KMS/core/constants/app_style.dart';
 import 'package:innovator/KMS/screens/constant_screen/custom_scroll.dart';
- 
 
 enum ComplaintStatus { complaint, resolved }
 
@@ -57,7 +56,7 @@ class _StudentComplainBoxScreenState
             )
           else
             _resolvedBox(
-              'assets/kms/tick.png',
+              'Assets/kms/tick.png',
               '2025-01-08 14:30', //Time later from the backend
               'Technical Issue with Robotics Module', //title of the complaint later from the backend
               'The robotics simulation software keeps crashing during the programming exercise. I\'ve tried refreshing multiple times but the issue persists.',
@@ -71,35 +70,35 @@ class _StudentComplainBoxScreenState
     );
   }
 
-Widget _statusElevatedButton({
-  required String label,
-  required ComplaintStatus thisStatus,
-}) {
-  final bool isSelected = _selected == thisStatus;
+  Widget _statusElevatedButton({
+    required String label,
+    required ComplaintStatus thisStatus,
+  }) {
+    final bool isSelected = _selected == thisStatus;
 
-  return ElevatedButton(
-    style: ElevatedButton.styleFrom(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: BorderSide(
-          color: isSelected ? Colors.black : Colors.transparent,
-          width: 1.5,
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: isSelected ? Colors.black : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        backgroundColor: isSelected ? Colors.white : AppStyle.primaryColor,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        elevation: isSelected ? 10 : 0,
+      ),
+      onPressed: () => setState(() => _selected = thisStatus),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.black : AppStyle.bodyTextColor,
+          fontWeight: FontWeight.w600,
         ),
       ),
-      backgroundColor: isSelected ? Colors.white : AppStyle.primaryColor,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      elevation: isSelected ? 10 : 0, 
-    ),
-    onPressed: () => setState(() => _selected = thisStatus),
-    child: Text(
-      label,
-      style: TextStyle(
-        color: isSelected ? Colors.black : AppStyle.bodyTextColor,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _complaintBox(
     String heading,
@@ -108,9 +107,9 @@ Widget _statusElevatedButton({
   ) {
     return Card(
       elevation: 5,
-       shape: RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadiusGeometry.circular(10),
-        side: BorderSide(color: Colors.grey.shade200)
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       color: AppStyle.backgroundColor,
       child: Padding(
@@ -208,13 +207,13 @@ Widget _statusElevatedButton({
   ) {
     return Card(
       elevation: 5,
-       shape: RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadiusGeometry.circular(10),
-        side: BorderSide(color: Colors.grey.shade200)
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       color: AppStyle.backgroundColor,
       child: Padding(
-        padding: EdgeInsets.only(top: 20, right: 20, left: 20,),
+        padding: EdgeInsets.only(top: 20, right: 20, left: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -302,14 +301,14 @@ Widget _statusElevatedButton({
                             children: [
                               Align(
                                 alignment: Alignment.bottomRight,
-                                child:        Text(
-                          time,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                            fontSize: 8,
-                          ),
-                        ),
+                                child: Text(
+                                  time,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 8,
+                                  ),
+                                ),
                               ),
                               Text(
                                 messageBy,

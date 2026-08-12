@@ -1,8 +1,8 @@
-import 'package:dotted_border/dotted_border.dart'; 
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:innovator/KMS/core/constants/app_style.dart';
-import 'package:innovator/KMS/core/constants/mediaquery.dart'; 
+import 'package:innovator/KMS/core/constants/mediaquery.dart';
 
 class StudentTaskDetailsScreen extends ConsumerWidget {
   const StudentTaskDetailsScreen({super.key});
@@ -83,7 +83,7 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
                 children: [
                   FittedBox(
                     child: overViewCard(
-                      'assets/kms/time.png',
+                      'Assets/kms/time.png',
                       '2 Days, 48 hours',
                       'Time Remaining',
                       Color(0xffFEEFD7),
@@ -91,7 +91,7 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
                   ),
                   FittedBox(
                     child: overViewCard(
-                      'assets/kms/star.png',
+                      'Assets/kms/star.png',
                       '100 points, 20% of grade',
                       'Points',
                       Color(0xffDDFFE7),
@@ -100,7 +100,7 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
                 ],
               ),
               overViewCard(
-                'assets/kms/calender_outlined.png',
+                'Assets/kms/calender_outlined.png',
                 colors: AppStyle.primaryColor,
                 'November 25, 2025- 11:59 P.M',
                 'Time Remaining',
@@ -129,7 +129,7 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Image.asset('assets/kms/progress.png'),
+                    Image.asset('Assets/kms/progress.png'),
                     Text('In Progress'),
                   ],
                 ),
@@ -137,12 +137,12 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
               SizedBox(height: 25),
               Divider(color: Color(0xffD9D9D9)),
               dropDown(
-                image: 'assets/kms/task_description.png',
+                image: 'Assets/kms/task_description.png',
                 'Task Description',
                 'Will be updated soon',
               ),
               dropDown(
-                image: 'assets/kms/requirement.png',
+                image: 'Assets/kms/requirement.png',
                 'Requirements',
                 'Will be updated soon',
               ),
@@ -150,7 +150,7 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
               SizedBox(height: 25),
               Row(
                 children: [
-                  Image.asset('assets/kms/submit.png'),
+                  Image.asset('Assets/kms/submit.png'),
                   SizedBox(width: 10),
                   Text(
                     'Submit Your Work',
@@ -160,25 +160,25 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
               ),
               SizedBox(height: 20),
               InkWell(
-                onTap: (){},
+                onTap: () {},
                 child: DottedBorder(
                   options: RoundedRectDottedBorderOptions(
                     dashPattern: [10, 5],
                     strokeWidth: 2,
-                
+
                     radius: Radius.circular(10),
                   ),
                   child: Container(
                     height: 130,
                     width: double.infinity,
                     padding: EdgeInsets.only(bottom: 10),
-                
+
                     decoration: BoxDecoration(color: Colors.white),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset('assets/kms/upload.png'),
-                
+                        Image.asset('Assets/kms/upload.png'),
+
                         Text(
                           'Click to upload or drag and drop',
                           style: TextStyle(
@@ -186,38 +186,43 @@ class StudentTaskDetailsScreen extends ConsumerWidget {
                             fontSize: 14,
                           ),
                         ),
-                        Text('PDF or DOCX (Max 10MB)', style: TextStyle(
+                        Text(
+                          'PDF or DOCX (Max 10MB)',
+                          style: TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 12,
-                          ),),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-               SizedBox(height: 40),
-               Row(
+              SizedBox(height: 40),
+              Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text('Cancel', style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),),
-                        SizedBox(width:50,),
-                       ElevatedButton(
-                        
-                        style: ElevatedButton.styleFrom(
-                          elevation: 3,
-                          backgroundColor: AppStyle.primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(13)
-                          )
-                        ),
-                        onPressed: (){}, child: Text('Submit',style: TextStyle(
-                      color: AppStyle.bodyTextColor
-                       ),))
+                  Text(
+                    'Cancel',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  SizedBox(width: 50),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 3,
+                      backgroundColor: AppStyle.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                    ),
+                    onPressed: () {},
+                    child: Text(
+                      'Submit',
+                      style: TextStyle(color: AppStyle.bodyTextColor),
+                    ),
+                  ),
                 ],
-               )
+              ),
             ],
           ),
         ),
