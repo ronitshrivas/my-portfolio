@@ -9,6 +9,24 @@ import 'package:innovator/innovator/data/sources/google_auth_service.dart';
 import 'package:innovator/services/memory_cache.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
 
+/// Result of `GET /api/users/check-username`.
+class UsernameCheck {
+  const UsernameCheck({required this.available, this.suggestions = const []});
+
+  final bool available;
+  final List<String> suggestions;
+
+  factory UsernameCheck.fromJson(Map<String, dynamic> json) {
+    final raw = json['suggestions'];
+    return UsernameCheck(
+      available: json['available'] == true,
+      suggestions: raw is List
+          ? raw.map((e) => e.toString()).toList()
+          : const [],
+    );
+  }
+}
+
 class AuthUser {
   const AuthUser({
     required this.id,
@@ -161,6 +179,22 @@ class AuthApi {
     await _ensureProfile(data.user);
     unawaited(PushService.instance.init());
     return data;
+  }
+
+  /// Checks whether a username is available. Returns availability + suggestions.
+  /// `GET /api/users/check-username?username=...`
+  Future<UsernameCheck> checkUsername(String username) async {
+    final envelope = await _client.get<UsernameCheck>(
+      ApiConfig.authBaseUrl,
+      '/api/users/check-username',
+      query: {'username': username},
+      auth: false,
+      parse: (raw) => UsernameCheck.fromJson(
+        Map<String, dynamic>.from(raw as Map? ?? const {}),
+      ),
+    );
+    return envelope.data ??
+        const UsernameCheck(available: false, suggestions: []);
   }
 
   Future<AuthResult> register({

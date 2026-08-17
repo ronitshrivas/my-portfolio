@@ -1,18 +1,20 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
-import 'dart:ui' as ui;
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:innovator/innovator/providers/innovator_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'models/api_response.dart';
 import 'package:innovator/innovator/data/models/feed_models.dart';
 import 'package:innovator/innovator/data/models/profile_models.dart';
+import 'package:innovator/innovator/data/sources/auth_api.dart';
 import 'package:innovator/innovator/data/sources/feed_api.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
 import 'services/auth_session.dart';
+import 'services/sound_player.dart';
 import 'theme/brand_colors.dart';
 import 'widgets/animated_blob_background.dart';
 import 'widgets/cached_feed_image.dart';
@@ -23,10 +25,8 @@ import 'widgets/wave_fill_painter.dart';
 
 const _ink = BrandColors.ink;
 const _muted = BrandColors.muted;
-
 const _defaultCover = 'Assets/feed/post_07.jpg';
 
-/// Student / learner profile fields editable from the profile menu.
 class _LearnerInfo {
   const _LearnerInfo({
     required this.displayName,
@@ -62,16 +62,12 @@ class _LearnerInfo {
     required this.instagram,
     required this.github,
   });
-
   final String displayName;
   final String fullName;
   final String bio;
-
-  /// Multi-value profile lists (new backend fields).
   final List<String> educations;
   final List<String> occupations;
   final List<ProfileLink> links;
-
   final String email;
   final String phone;
   final String dateOfBirth;
@@ -350,7 +346,6 @@ class _TitleBadge {
     required this.icon,
     required this.colors,
   });
-
   final String label;
   final IconData icon;
   final List<Color> colors;
@@ -462,7 +457,7 @@ class _ProfileSectionState extends State<ProfileSection>
   int _collaborating = 0;
   static const _innovationCount = 6;
   static const _avatarSize = 92.0;
-  static const _coverHeight = 168.0;
+  static const _coverHeight = 230.0;
 
   bool get _isOwnProfile => widget.onBack == null;
 
@@ -522,6 +517,13 @@ class _ProfileSectionState extends State<ProfileSection>
         _collaborating = profile.followingCount;
         _loading = false;
       });
+      // Seed the shared current-user state so the cover Consumer, drawer and
+      // composer all reflect the loaded profile (own profile only).
+      if (_isOwnProfile) {
+        ProviderScope.containerOf(context, listen: false)
+            .read(currentUserProvider.notifier)
+            .set(profile);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -606,47 +608,64 @@ class _ProfileSectionState extends State<ProfileSection>
     }
   }
 
-  /// Picks any file and returns its bytes (avatar accepts any type; we
-  /// normalise to PNG before upload).
+  /// Picks an image for the avatar and returns its bytes. Uses image_picker
+  /// (reliable readable bytes for gallery / WhatsApp images on Android, any
+  /// format) — file_picker often returns null bytes and the upload then fails.
   Future<Uint8List?> _pickAnyFile() async {
     try {
-      final result = await FilePicker.pickFiles(withData: true);
-      return result?.files.single.bytes;
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
+      if (picked == null) return null;
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) {
+        if (mounted) _toast('That image could not be read. Try another.');
+        return null;
+      }
+      return bytes;
     } catch (_) {
       if (!mounted) return null;
-      _toast('Could not open the file picker');
+      _toast('Could not open the photo picker');
       return null;
     }
   }
 
-  /// Decodes arbitrary image bytes (HEIC from iPhone, webp, etc.) and
-  /// re-encodes them as PNG so the avatar is always a web-friendly format.
-  Future<Uint8List?> _toPngBytes(Uint8List input) async {
-    try {
-      final codec = await ui.instantiateImageCodec(input);
-      final frame = await codec.getNextFrame();
-      final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
-      return data?.buffer.asUint8List();
-    } catch (_) {
-      // If it can't be decoded as an image, fall back to the raw bytes.
-      return input;
-    }
+  /// Pushes the new avatar into the shared current-user provider so the drawer
+  /// and any other screen watching it update instantly. Own profile only.
+  void _broadcastAvatar(String url) {
+    if (!_isOwnProfile) return;
+    ProviderScope.containerOf(context, listen: false)
+        .read(currentUserProvider.notifier)
+        .setAvatar(url);
+  }
+
+  void _broadcastCover(String url) {
+    if (!_isOwnProfile) return;
+    ProviderScope.containerOf(context, listen: false)
+        .read(currentUserProvider.notifier)
+        .setCover(url);
   }
 
   Future<void> _changePhoto() async {
     HapticFeedback.mediumImpact();
     final raw = await _pickAnyFile();
     if (raw == null || !mounted) return;
-    final bytes = await _toPngBytes(raw) ?? raw;
+    // Send the picker's original JPEG bytes — the backend re-encodes any format
+    // and persists it, so a client PNG re-encode (which can bloat and 500) is
+    // unnecessary.
+    final bytes = raw;
     if (!mounted) return;
     setState(() => _avatarBytes = bytes);
     try {
-      final url = await _profileApi.uploadAvatar(bytes, filename: 'avatar.png');
+      final url = await _profileApi.uploadAvatar(bytes, filename: 'avatar.jpg');
       if (!mounted) return;
       setState(() {
         _avatarUrl = url;
         _avatarBytes = null;
       });
+      // Broadcast so the drawer / header / anywhere watching updates instantly.
+      _broadcastAvatar(url);
       _toast('Avatar updated');
       await _loadProfile();
     } on ApiException catch (e) {
@@ -661,7 +680,8 @@ class _ProfileSectionState extends State<ProfileSection>
     HapticFeedback.mediumImpact();
     final raw = await _pickImage();
     if (raw == null || !mounted) return;
-    final bytes = await _toPngBytes(raw) ?? raw;
+    // Send original bytes; backend converts + persists (avoids PNG bloat/500).
+    final bytes = raw;
     if (!mounted) return;
     // Optimistically show the picked cover while it uploads.
     setState(() {
@@ -671,13 +691,16 @@ class _ProfileSectionState extends State<ProfileSection>
     try {
       final url = await _profileApi.uploadCover(bytes, filename: 'cover.jpg');
       if (!mounted) return;
+      // Update the cover in place only — no full-screen reload. The local
+      // _coverUrl repaints just the banner, and _broadcastCover pushes the new
+      // URL into the shared provider so the drawer / composer update too.
       setState(() {
         _coverUrl = url;
         _coverBytes = null;
         _coverUploading = false;
       });
+      _broadcastCover(url);
       _toast('Cover updated');
-      await _loadProfile();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -720,6 +743,7 @@ class _ProfileSectionState extends State<ProfileSection>
   Future<void> _toggleFollow() async {
     final target = _profile?.authUserId;
     if (target == null || target.isEmpty || _followBusy) return;
+    SoundPlayer.instance.follow();
     setState(() => _followBusy = true);
     try {
       final result = await _profileApi.toggleFollow(target);
@@ -1169,19 +1193,36 @@ class _CoverHeader extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // Only this Consumer rebuilds when the shared cover changes —
+                // not the whole profile screen. Priority: freshly-picked bytes
+                // (optimistic) → shared provider cover → passed url → default.
                 if (coverBytes != null)
                   Image.memory(coverBytes!, fit: BoxFit.cover)
-                else if (coverUrl != null && coverUrl!.isNotEmpty)
-                  CachedFeedImage(
-                    url: coverUrl!,
-                    fit: BoxFit.cover,
-                    errorWidget: const FastAssetImage(
-                      asset: _defaultCover,
-                      fit: BoxFit.cover,
-                    ),
-                  )
                 else
-                  FastAssetImage(asset: _defaultCover, fit: BoxFit.cover),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final liveCover = ref.watch(
+                        currentUserProvider.select((u) => u?.coverImage),
+                      );
+                      final url = (liveCover != null && liveCover.isNotEmpty)
+                          ? liveCover
+                          : coverUrl;
+                      if (url != null && url.isNotEmpty) {
+                        return CachedFeedImage(
+                          url: url,
+                          fit: BoxFit.cover,
+                          errorWidget: const FastAssetImage(
+                            asset: _defaultCover,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      }
+                      return const FastAssetImage(
+                        asset: _defaultCover,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -1462,6 +1503,49 @@ class _EditProfilePageState extends State<_EditProfilePage>
   late final _displayName = TextEditingController(
     text: widget.info.displayName,
   );
+
+  // Username availability check for the display name (debounced). The original
+  // value is allowed (it's the user's current username).
+  late final String _originalUsername = widget.info.displayName.trim();
+  final _authApi = AuthApi();
+  Timer? _usernameDebounce;
+  bool _checkingUsername = false;
+  bool? _usernameAvailable;
+  List<String> _usernameSuggestions = const [];
+
+  void _onUsernameChanged(String value) {
+    final name = value.trim();
+    _usernameDebounce?.cancel();
+    setState(() {
+      _usernameAvailable = null;
+      _usernameSuggestions = const [];
+      _checkingUsername = false;
+    });
+    if (name.isEmpty || name == _originalUsername) return;
+    if (name.length < 3) return;
+    _usernameDebounce = Timer(const Duration(milliseconds: 450), () async {
+      setState(() => _checkingUsername = true);
+      try {
+        final result = await _authApi.checkUsername(name);
+        if (!mounted || _displayName.text.trim() != name) return;
+        setState(() {
+          _usernameAvailable = result.available;
+          _usernameSuggestions = result.suggestions;
+          _checkingUsername = false;
+        });
+      } catch (_) {
+        if (mounted) setState(() => _checkingUsername = false);
+      }
+    });
+  }
+
+  void _applyUsernameSuggestion(String suggestion) {
+    _displayName.text = suggestion;
+    _displayName.selection = TextSelection.fromPosition(
+      TextPosition(offset: suggestion.length),
+    );
+    _onUsernameChanged(suggestion);
+  }
   late final _fullName = TextEditingController(text: widget.info.fullName);
   late final _bio = TextEditingController(text: widget.info.bio);
   late final _email = TextEditingController(text: widget.info.email);
@@ -1534,6 +1618,7 @@ class _EditProfilePageState extends State<_EditProfilePage>
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _wave.dispose();
     for (final c in [
       _displayName,
@@ -1578,6 +1663,17 @@ class _EditProfilePageState extends State<_EditProfilePage>
   }
 
   void _save() {
+    // Block save if the chosen username is taken (unchanged username is fine).
+    final username = _displayName.text.trim();
+    if (username != _originalUsername && _usernameAvailable == false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('That username is taken. Pick another.'),
+        ),
+      );
+      return;
+    }
     HapticFeedback.mediumImpact();
     Navigator.of(context).pop(
       _LearnerInfo(
@@ -1715,10 +1811,17 @@ class _EditProfilePageState extends State<_EditProfilePage>
                     children: [
                       const _FormSectionTitle('Profile'),
                       _FormField(
-                        label: 'Display name',
+                        label: 'Username',
                         controller: _displayName,
                         hint: 'How you appear on Innovator',
                         wave: _wave,
+                        onChanged: _onUsernameChanged,
+                      ),
+                      _EditUsernameStatus(
+                        checking: _checkingUsername,
+                        available: _usernameAvailable,
+                        suggestions: _usernameSuggestions,
+                        onPick: _applyUsernameSuggestion,
                       ),
                       _FormField(
                         label: 'Full name',
@@ -2294,6 +2397,7 @@ class _FormField extends StatefulWidget {
     required this.wave,
     this.maxLines = 1,
     this.keyboard = TextInputType.text,
+    this.onChanged,
   });
 
   final String label;
@@ -2302,6 +2406,7 @@ class _FormField extends StatefulWidget {
   final AnimationController wave;
   final int maxLines;
   final TextInputType keyboard;
+  final ValueChanged<String>? onChanged;
 
   @override
   State<_FormField> createState() => _FormFieldState();
@@ -2433,6 +2538,7 @@ class _FormFieldState extends State<_FormField> {
                             focusNode: _focus,
                             maxLines: widget.maxLines,
                             keyboardType: widget.keyboard,
+                            onChanged: widget.onChanged,
                             style: const TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w600,
@@ -2459,6 +2565,118 @@ class _FormFieldState extends State<_FormField> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Username availability status shown under the Username field on the edit
+/// profile form: spinner while checking, green/red result, tappable suggestions.
+class _EditUsernameStatus extends StatelessWidget {
+  const _EditUsernameStatus({
+    required this.checking,
+    required this.available,
+    required this.suggestions,
+    required this.onPick,
+  });
+
+  final bool checking;
+  final bool? available;
+  final List<String> suggestions;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!checking && available == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (checking)
+            Row(
+              children: [
+                const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Checking…',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: _ink.withValues(alpha: .55),
+                  ),
+                ),
+              ],
+            )
+          else if (available == true)
+            const Row(
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    size: 15, color: Color(0xFF17A275)),
+                SizedBox(width: 6),
+                Text(
+                  'Available',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF17A275),
+                  ),
+                ),
+              ],
+            )
+          else if (available == false) ...[
+            const Row(
+              children: [
+                Icon(Icons.cancel_rounded, size: 15, color: Color(0xFFC0392B)),
+                SizedBox(width: 6),
+                Text(
+                  'Taken',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFC0392B),
+                  ),
+                ),
+              ],
+            ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final s in suggestions)
+                    GestureDetector(
+                      onTap: () => onPick(s),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: Colors.white.withValues(alpha: .6),
+                          border:
+                              Border.all(color: _ink.withValues(alpha: .15)),
+                        ),
+                        child: Text(
+                          s,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ],
       ),
     );
   }
@@ -3066,6 +3284,7 @@ class _PersonTileState extends State<_PersonTile> {
     final id = person.authUserId;
     if (_busy || id == null || id.isEmpty) return;
     HapticFeedback.selectionClick();
+    SoundPlayer.instance.follow();
     final next = !_following;
     setState(() {
       _following = next;

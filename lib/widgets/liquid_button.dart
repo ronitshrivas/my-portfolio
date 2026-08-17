@@ -1,17 +1,10 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import '../theme/brand_colors.dart';
-
 import 'liquid_pressable.dart';
 
 const _ink = BrandColors.ink;
 
-/// Primary glass button with the liquid press feel (see [LiquidPressable]).
-///
-/// [dark] switches between the ink-glass primary style and a white-glass
-/// secondary style (used for e.g. the Google button). [leading] renders a
-/// widget before the label.
 class LiquidButton extends StatelessWidget {
   const LiquidButton({
     super.key,
@@ -32,18 +25,18 @@ class LiquidButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradientColors = dark
-        ? [
-            BrandColors.secondarySurface.withValues(alpha: .96),
-            BrandColors.secondarySurface.withValues(alpha: .90),
-          ]
-        : [
-            BrandColors.text.withValues(alpha: .95),
-            BrandColors.text.withValues(alpha: .55),
-          ];
-    final borderColor = dark
-        ? BrandColors.accent.withValues(alpha: .5)
-        : BrandColors.text;
+    final gradientColors =
+        dark
+            ? [
+              BrandColors.secondarySurface.withValues(alpha: .96),
+              BrandColors.secondarySurface.withValues(alpha: .90),
+            ]
+            : [
+              BrandColors.text.withValues(alpha: .95),
+              BrandColors.text.withValues(alpha: .55),
+            ];
+    final borderColor =
+        dark ? BrandColors.accent.withValues(alpha: .5) : BrandColors.text;
     final textColor = dark ? BrandColors.text : _ink;
 
     return LiquidPressable(

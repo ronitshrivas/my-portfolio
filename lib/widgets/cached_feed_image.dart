@@ -1,11 +1,8 @@
 import 'dart:developer' as developer;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-
 import '../services/media_cache.dart';
 
-/// Fast feed image — disk cache, resized decode, no fade delay.
 class CachedFeedImage extends StatelessWidget {
   const CachedFeedImage({
     super.key,
@@ -80,12 +77,6 @@ class CachedFeedImage extends StatelessWidget {
   }
 }
 
-/// Static placeholder shown while a feed image loads or fails.
-///
-/// Deliberately NOT an animated shimmer: a shimmer runs a gradient animation
-/// every frame, and during fast scroll many loading tiles would animate at
-/// once, costing frames. A flat colored box is free to paint and keeps the
-/// feed perfectly smooth.
 class _ImageSkeleton extends StatelessWidget {
   const _ImageSkeleton();
 

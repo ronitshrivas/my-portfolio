@@ -11,8 +11,6 @@ import 'widgets/liquid_button.dart';
 
 const _ink = BrandColors.ink;
 
-/// Forgot-password flow: request an OTP by email, then verify it and set a new
-/// password — all in one glass card, revealed step by step.
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -117,10 +115,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
   void _toast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(message),
-      ),
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)),
     );
   }
 
@@ -134,8 +129,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: FadeTransition(
                   opacity: _fade,
                   child: SlideTransition(
@@ -207,8 +204,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                           if (_busy)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 14),
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.4),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
                             )
                           else
                             LiquidButton(

@@ -119,8 +119,70 @@ final myProfileProvider = FutureProvider<UserProfile>((ref) async {
 
   final fresh = await api.getMe();
   cache?.put('profile.me', fresh.toJson());
+  // Seed the shared live copy so every screen that watches it updates.
+  ref.read(currentUserProvider.notifier).set(fresh);
   return fresh;
 });
+
+/// Live, mutable copy of the signed-in user shown across the app (profile
+/// header, drawer, feed header). Any screen can push an updated profile via
+/// [CurrentUserNotifier.set] after an avatar / cover / profile edit, and every
+/// widget watching this provider rebuilds instantly — no manual refresh.
+class CurrentUserNotifier extends StateNotifier<UserProfile?> {
+  CurrentUserNotifier(this._api, this._cache) : super(null) {
+    _hydrate();
+  }
+
+  final ProfileApi _api;
+  final HiveCache? _cache;
+
+  void _hydrate() {
+    final raw = _cache?.peek<Map>('profile.me');
+    if (raw == null) return;
+    try {
+      state = UserProfile.fromJson(Map<String, dynamic>.from(raw));
+    } catch (_) {
+      /* ignore malformed cache */
+    }
+  }
+
+  /// Replace the whole profile (after a fetch or full edit).
+  void set(UserProfile profile) {
+    state = profile;
+    _cache?.put('profile.me', profile.toJson());
+  }
+
+  /// Fetch the latest from the server and broadcast it.
+  Future<void> refresh() async {
+    try {
+      final fresh = await _api.getMe();
+      set(fresh);
+    } catch (_) {
+      /* keep current */
+    }
+  }
+
+  /// Patch just the avatar (after upload) so it updates everywhere at once.
+  void setAvatar(String? url) {
+    final p = state;
+    if (p == null) return;
+    set(p.copyWith(avatar: url));
+  }
+
+  /// Patch just the cover (after upload).
+  void setCover(String? url) {
+    final p = state;
+    if (p == null) return;
+    set(p.copyWith(coverImage: url));
+  }
+}
+
+final currentUserProvider =
+    StateNotifierProvider<CurrentUserNotifier, UserProfile?>((ref) {
+      final api = ref.watch(profileApiProvider);
+      final cache = ref.watch(innovatorCacheProvider).valueOrNull;
+      return CurrentUserNotifier(api, cache);
+    });
 
 /// Any user's profile by auth id (for the "specific profile" screen).
 final userProfileProvider = FutureProvider.family<UserProfile, String>((

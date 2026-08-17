@@ -1,16 +1,12 @@
 import 'dart:math';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import '../theme/brand_colors.dart';
-
 import 'liquid_pressable.dart';
 import 'wave_fill_painter.dart';
 
 const _ink = BrandColors.ink;
 
-/// Shared motion for the travelling curve: a slight overshoot before
-/// settling, like liquid finding its level.
 const Curve _liquidCurve = Curves.easeOutBack;
 const Duration _liquidDuration = Duration(milliseconds: 520);
 
@@ -88,14 +84,6 @@ class NavLogoOrb extends StatelessWidget {
   }
 }
 
-/// Dockable liquid glass navigation bar.
-///
-/// Horizontal (top/bottom): [leading] icons sit left of the raised logo
-/// orb, [trailing] icons to its right. The selected icon rises out of the
-/// bar into a floating orb and the bar's curved notch slides under it —
-/// the same cutout the logo rests in, travelling with the selection.
-/// Vertical (left/right): a slim drawer-like rail with the logo on top
-/// and [LiquidNavItem.pinBottom] items pinned at the bottom.
 class LiquidNavBar extends StatelessWidget {
   const LiquidNavBar({
     super.key,
@@ -122,8 +110,6 @@ class LiquidNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return _horizontal ? _buildHorizontal(context) : _buildVertical(context);
   }
-
-  // ------------------------------------------------- horizontal (curved)
 
   static const _barHeight = 62.0;
   static const _orbSize = 56.0;
@@ -158,16 +144,18 @@ class LiquidNavBar extends StatelessWidget {
         final targetR = hasSelection ? _iconOrb / 2 + 7 : _orbSize / 2 + 7;
         final notchY = onBottom ? 7.0 : _barHeight - 7.0;
 
-        final iconRestTop = onBottom
-            ? _overhang + (_barHeight - _iconOrb) / 2
-            : (_barHeight - _iconOrb) / 2;
+        final iconRestTop =
+            onBottom
+                ? _overhang + (_barHeight - _iconOrb) / 2
+                : (_barHeight - _iconOrb) / 2;
         final iconRaisedTop = onBottom ? 0.0 : totalHeight - _iconOrb;
 
         // Logo positions: raised in the notch, or sunk inline in the bar.
         final logoRaisedTop = onBottom ? 0.0 : _barHeight - _overhang - 2;
-        final logoSunkTop = onBottom
-            ? _overhang + (_barHeight - _orbSize) / 2
-            : (_barHeight - _orbSize) / 2;
+        final logoSunkTop =
+            onBottom
+                ? _overhang + (_barHeight - _orbSize) / 2
+                : (_barHeight - _orbSize) / 2;
 
         return SizedBox(
           height: totalHeight,
@@ -348,12 +336,13 @@ class _LiquidGlassFillState extends State<_LiquidGlassFill>
                 Colors.white.withValues(alpha: .004),
               ],
             ),
-            border: widget.bordered
-                ? Border.all(
-                    color: Colors.white.withValues(alpha: .10),
-                    width: 0.8,
-                  )
-                : null,
+            border:
+                widget.bordered
+                    ? Border.all(
+                      color: Colors.white.withValues(alpha: .10),
+                      width: 0.8,
+                    )
+                    : null,
           ),
           child: Stack(
             fit: StackFit.passthrough,
@@ -435,13 +424,16 @@ class _NotchedGlassBarState extends State<_NotchedGlassBar>
   }
 
   Path _buildPath(Size size) {
-    var path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(26)),
-      );
+    var path =
+        Path()..addRRect(
+          RRect.fromRectAndRadius(
+            Offset.zero & size,
+            const Radius.circular(26),
+          ),
+        );
     for (final (x, y, r) in widget.notches) {
-      final circle = Path()
-        ..addOval(Rect.fromCircle(center: Offset(x, y), radius: r));
+      final circle =
+          Path()..addOval(Rect.fromCircle(center: Offset(x, y), radius: r));
       path = Path.combine(PathOperation.difference, path, circle);
     }
     return path;
@@ -584,11 +576,12 @@ class _CurveNavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.destructive
-        ? const Color(0xFFC0392B)
-        : selected
-        ? Colors.white
-        : _ink.withValues(alpha: .45);
+    final color =
+        item.destructive
+            ? const Color(0xFFC0392B)
+            : selected
+            ? Colors.white
+            : _ink.withValues(alpha: .45);
 
     return Tooltip(
       message: item.label,
@@ -604,31 +597,34 @@ class _CurveNavIcon extends StatelessWidget {
           height: 46,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: selected
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      BrandColors.secondarySurface,
-                      BrandColors.secondarySurface,
-                    ],
-                  )
-                : null,
+            gradient:
+                selected
+                    ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        BrandColors.secondarySurface,
+                        BrandColors.secondarySurface,
+                      ],
+                    )
+                    : null,
             border: Border.all(
-              color: selected
-                  ? BrandColors.accent.withValues(alpha: .7)
-                  : Colors.transparent,
+              color:
+                  selected
+                      ? BrandColors.accent.withValues(alpha: .7)
+                      : Colors.transparent,
               width: 1.5,
             ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: _ink.withValues(alpha: .3),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : const [],
+            boxShadow:
+                selected
+                    ? [
+                      BoxShadow(
+                        color: _ink.withValues(alpha: .3),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                    : const [],
           ),
           child: Icon(item.icon, size: 20, color: color),
         ),

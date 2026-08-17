@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'theme/brand_colors.dart';
 
@@ -41,11 +43,59 @@ class _SignupPageState extends State<SignupPage>
   ).animate(CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic));
 
   final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authApi = AuthApi();
   String? _gender;
   bool _busy = false;
+
+  // Username availability check (debounced).
+  Timer? _usernameDebounce;
+  bool _checkingUsername = false;
+  bool? _usernameAvailable;
+  List<String> _usernameSuggestions = const [];
+  String _lastCheckedUsername = '';
+
+  void _onUsernameChanged(String value) {
+    final name = value.trim();
+    _usernameDebounce?.cancel();
+    setState(() {
+      _usernameAvailable = null;
+      _usernameSuggestions = const [];
+      _checkingUsername = false;
+    });
+    if (name.length < 3) return;
+    _usernameDebounce = Timer(const Duration(milliseconds: 450), () {
+      _runUsernameCheck(name);
+    });
+  }
+
+  Future<void> _runUsernameCheck(String name) async {
+    if (name == _lastCheckedUsername && _usernameAvailable != null) return;
+    setState(() => _checkingUsername = true);
+    try {
+      final result = await _authApi.checkUsername(name);
+      if (!mounted || _usernameController.text.trim() != name) return;
+      setState(() {
+        _usernameAvailable = result.available;
+        _usernameSuggestions = result.suggestions;
+        _lastCheckedUsername = name;
+        _checkingUsername = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _checkingUsername = false);
+    }
+  }
+
+  void _applySuggestion(String suggestion) {
+    _usernameController.text = suggestion;
+    _usernameController.selection = TextSelection.fromPosition(
+      TextPosition(offset: suggestion.length),
+    );
+    _onUsernameChanged(suggestion);
+  }
 
   String _usernameFromName(String name) {
     final cleaned = name
@@ -63,14 +113,28 @@ class _SignupPageState extends State<SignupPage>
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final typedUsername = _usernameController.text.trim();
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       _toast('Fill name, email, and password');
       return;
     }
+    // Use the chosen username; fall back to a name-derived one if left blank.
+    final username =
+        typedUsername.isNotEmpty ? typedUsername : _usernameFromName(name);
+    if (typedUsername.isNotEmpty) {
+      if (typedUsername.length < 3) {
+        _toast('Username must be at least 3 characters');
+        return;
+      }
+      if (_usernameAvailable == false) {
+        _toast('That username is taken. Pick another or use a suggestion.');
+        return;
+      }
+    }
     setState(() => _busy = true);
     try {
       final result = await _authApi.register(
-        username: _usernameFromName(name),
+        username: username,
         email: email,
         password: password,
         role: 'innovator',
@@ -137,8 +201,10 @@ class _SignupPageState extends State<SignupPage>
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _entrance.dispose();
     _nameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -188,6 +254,19 @@ class _SignupPageState extends State<SignupPage>
                             hint: 'Full Name',
                             icon: Icons.person_outline_rounded,
                             keyboardType: TextInputType.name,
+                          ),
+                          const SizedBox(height: 14),
+                          GlassTextField(
+                            controller: _usernameController,
+                            hint: 'Username',
+                            icon: Icons.alternate_email_rounded,
+                            onChanged: _onUsernameChanged,
+                          ),
+                          _UsernameStatus(
+                            checking: _checkingUsername,
+                            available: _usernameAvailable,
+                            suggestions: _usernameSuggestions,
+                            onPick: _applySuggestion,
                           ),
                           const SizedBox(height: 14),
                           GlassTextField(
@@ -299,6 +378,128 @@ class _OrDivider extends StatelessWidget {
           child: Container(height: 1, color: _ink.withValues(alpha: .12)),
         ),
       ],
+    );
+  }
+}
+
+/// Shows the username availability state under the username field: a spinner
+/// while checking, green "available" / red "taken", and tappable suggestions.
+class _UsernameStatus extends StatelessWidget {
+  const _UsernameStatus({
+    required this.checking,
+    required this.available,
+    required this.suggestions,
+    required this.onPick,
+  });
+
+  final bool checking;
+  final bool? available;
+  final List<String> suggestions;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!checking && available == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (checking)
+            Row(
+              children: [
+                const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Checking availability…',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: _ink.withValues(alpha: .55),
+                  ),
+                ),
+              ],
+            )
+          else if (available == true)
+            Row(
+              children: const [
+                Icon(Icons.check_circle_rounded,
+                    size: 15, color: Color(0xFF17A275)),
+                SizedBox(width: 6),
+                Text(
+                  'Username available',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF17A275),
+                  ),
+                ),
+              ],
+            )
+          else if (available == false) ...[
+            Row(
+              children: const [
+                Icon(Icons.cancel_rounded, size: 15, color: Color(0xFFC0392B)),
+                SizedBox(width: 6),
+                Text(
+                  'Username taken',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFC0392B),
+                  ),
+                ),
+              ],
+            ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Try one of these:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _ink.withValues(alpha: .5),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final s in suggestions)
+                    GestureDetector(
+                      onTap: () => onPick(s),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: Colors.white.withValues(alpha: .6),
+                          border: Border.all(
+                            color: _ink.withValues(alpha: .15),
+                          ),
+                        ),
+                        child: Text(
+                          s,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }

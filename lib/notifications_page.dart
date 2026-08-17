@@ -12,14 +12,12 @@ import 'widgets/news_feed_section.dart';
 
 const _ink = BrandColors.ink;
 
-/// Where a notification should land when opened.
 enum NotificationDestination { feed, chat, elearning, shop, profile }
 
 enum _NotifFilter { all, unread, activity, learning }
 
 enum _NotifKind { like, message, course, order, tip, follow, collaboration }
 
-/// Maps the backend notification `type` string to a UI kind.
 _NotifKind _kindFromType(String? type) {
   switch ((type ?? '').toLowerCase()) {
     case 'like':
@@ -63,19 +61,22 @@ class _AppNotification {
   final String time;
   bool unread;
 
-  /// Post this notification refers to (for like/comment → open that post).
   final String? relatedPostId;
 
   factory _AppNotification.fromApi(FeedNotification n) {
     return _AppNotification(
       id: n.id,
       kind: _kindFromType(n.type),
-      title: (n.senderUsername?.trim().isNotEmpty == true)
-          ? n.senderUsername!.trim()
-          : (n.title?.trim().isNotEmpty == true ? n.title!.trim() : 'Innovator'),
-      body: n.message?.trim().isNotEmpty == true
-          ? n.message!.trim()
-          : (n.title ?? ''),
+      title:
+          (n.senderUsername?.trim().isNotEmpty == true)
+              ? n.senderUsername!.trim()
+              : (n.title?.trim().isNotEmpty == true
+                  ? n.title!.trim()
+                  : 'Innovator'),
+      body:
+          n.message?.trim().isNotEmpty == true
+              ? n.message!.trim()
+              : (n.title ?? ''),
       time: formatFeedTime(n.createdAt),
       unread: !n.isRead,
       relatedPostId: n.relatedPostId,
@@ -83,25 +84,25 @@ class _AppNotification {
   }
 
   NotificationDestination get destination => switch (kind) {
-        _NotifKind.like => NotificationDestination.feed,
-        _NotifKind.message => NotificationDestination.chat,
-        _NotifKind.course => NotificationDestination.elearning,
-        _NotifKind.order => NotificationDestination.shop,
-        _NotifKind.tip => NotificationDestination.profile,
-        _NotifKind.follow => NotificationDestination.profile,
-        _NotifKind.collaboration => NotificationDestination.profile,
-      };
+    _NotifKind.like => NotificationDestination.feed,
+    _NotifKind.message => NotificationDestination.chat,
+    _NotifKind.course => NotificationDestination.elearning,
+    _NotifKind.order => NotificationDestination.shop,
+    _NotifKind.tip => NotificationDestination.profile,
+    _NotifKind.follow => NotificationDestination.profile,
+    _NotifKind.collaboration => NotificationDestination.profile,
+  };
 
   /// Professional outlined icons matched to each notification area.
   IconData get icon => switch (kind) {
-        _NotifKind.like => Icons.favorite_border_rounded,
-        _NotifKind.message => Icons.chat_bubble_outline_rounded,
-        _NotifKind.course => Icons.school_outlined,
-        _NotifKind.order => Icons.storefront_outlined,
-        _NotifKind.tip => Icons.person_outline_rounded,
-        _NotifKind.follow => Icons.person_add_alt_1_outlined,
-        _NotifKind.collaboration => Icons.groups_outlined,
-      };
+    _NotifKind.like => Icons.favorite_border_rounded,
+    _NotifKind.message => Icons.chat_bubble_outline_rounded,
+    _NotifKind.course => Icons.school_outlined,
+    _NotifKind.order => Icons.storefront_outlined,
+    _NotifKind.tip => Icons.person_outline_rounded,
+    _NotifKind.follow => Icons.person_add_alt_1_outlined,
+    _NotifKind.collaboration => Icons.groups_outlined,
+  };
 }
 
 /// Full-page liquid notifications experience inside the dashboard shell.
@@ -218,9 +219,9 @@ class _NotificationsSectionState extends State<NotificationsSection> {
     // Like / comment notifications open the specific post they refer to.
     final postId = item.relatedPostId?.trim();
     if (postId != null && postId.isNotEmpty) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => SinglePostPage(postId: postId)),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => SinglePostPage(postId: postId)));
       return;
     }
     widget.onOpen?.call(item.destination);
@@ -270,12 +271,7 @@ class _NotificationsSectionState extends State<NotificationsSection> {
     final itemCount = 1 + (empty ? 1 : visible.length + 1);
 
     return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        padding.top + 6,
-        20,
-        padding.bottom + 8,
-      ),
+      padding: EdgeInsets.fromLTRB(20, padding.top + 6, 20, padding.bottom + 8),
       cacheExtent: 480,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: true,
@@ -328,10 +324,7 @@ class _NotificationsSectionState extends State<NotificationsSection> {
           background: const _DismissBackground(),
           child: Column(
             children: [
-              _NotificationCard(
-                item: item,
-                onTap: () => _open(item),
-              ),
+              _NotificationCard(item: item, onTap: () => _open(item)),
               if (rowIndex != visible.length - 1)
                 Divider(
                   height: 1,
@@ -434,13 +427,15 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           borderRadius: radius,
-          color: selected
-              ? BrandColors.secondarySurface.withValues(alpha: .92)
-              : Colors.white.withValues(alpha: .4),
+          color:
+              selected
+                  ? BrandColors.secondarySurface.withValues(alpha: .92)
+                  : Colors.white.withValues(alpha: .4),
           border: Border.all(
-            color: selected
-                ? BrandColors.accent.withValues(alpha: .4)
-                : Colors.white.withValues(alpha: .85),
+            color:
+                selected
+                    ? BrandColors.accent.withValues(alpha: .4)
+                    : Colors.white.withValues(alpha: .85),
           ),
         ),
         child: Text(
@@ -457,10 +452,7 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({
-    required this.item,
-    required this.onTap,
-  });
+  const _NotificationCard({required this.item, required this.onTap});
 
   final _AppNotification item;
   final VoidCallback onTap;
@@ -490,9 +482,8 @@ class _NotificationCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 14.5,
-                            fontWeight: item.unread
-                                ? FontWeight.w700
-                                : FontWeight.w600,
+                            fontWeight:
+                                item.unread ? FontWeight.w700 : FontWeight.w600,
                             color: _ink,
                             letterSpacing: -.15,
                           ),
@@ -527,9 +518,7 @@ class _NotificationCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.4,
-                      color: _ink.withValues(
-                        alpha: item.unread ? .62 : .5,
-                      ),
+                      color: _ink.withValues(alpha: item.unread ? .62 : .5),
                     ),
                   ),
                 ],
@@ -563,11 +552,7 @@ class _IconOrb extends StatelessWidget {
         color: _ink.withValues(alpha: .06),
         border: Border.all(color: _ink.withValues(alpha: .08)),
       ),
-      child: Icon(
-        icon,
-        size: 20,
-        color: _ink.withValues(alpha: .72),
-      ),
+      child: Icon(icon, size: 20, color: _ink.withValues(alpha: .72)),
     );
   }
 }
@@ -613,7 +598,7 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
+          Text(
             'No notifications here',
             style: TextStyle(
               fontSize: 16,
@@ -625,10 +610,7 @@ class _EmptyState extends StatelessWidget {
           Text(
             'Try another filter or check back soon.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: _ink.withValues(alpha: .48),
-            ),
+            style: TextStyle(fontSize: 13, color: _ink.withValues(alpha: .48)),
           ),
         ],
       ),

@@ -4,14 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../theme/brand_colors.dart';
 
-/// Clean, colorless backdrop: soft off-white base with a few barely-there
-/// gray orbs drifting very slowly. The motion is subtle on purpose — just
-/// enough for the glass surfaces above to have something to blur so they
-/// still read as glass instead of flat panels.
 class AnimatedBlobBackground extends StatefulWidget {
   const AnimatedBlobBackground({super.key, this.animate = true});
 
-  /// When false, the painter freezes on the current frame (cheap while scrolling).
   final bool animate;
 
   @override
@@ -55,10 +50,11 @@ class _AnimatedBlobBackgroundState extends State<AnimatedBlobBackground>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (context, _) => CustomPaint(
-          painter: _BlobPainter(_controller.value),
-          child: const SizedBox.expand(),
-        ),
+        builder:
+            (context, _) => CustomPaint(
+              painter: _BlobPainter(_controller.value),
+              child: const SizedBox.expand(),
+            ),
       ),
     );
   }

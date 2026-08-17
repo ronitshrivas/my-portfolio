@@ -32,8 +32,6 @@ class FeedVideoPlayer extends StatefulWidget {
   final bool muted;
   final bool showControls;
   final VoidCallback? onTap;
-
-  /// Only initialize when enough of the widget is on screen.
   final bool requireVisible;
   final double visibleFraction;
 
@@ -122,8 +120,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       // Prefer local file only if already cached — never wait on a download.
       File? local;
       try {
-        local = await InnovatorMediaCache.cachedFile(raw)
-            .timeout(const Duration(milliseconds: 30));
+        local = await InnovatorMediaCache.cachedFile(
+          raw,
+        ).timeout(const Duration(milliseconds: 30));
       } catch (_) {
         local = null;
       }
@@ -234,11 +233,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     if (poster.isEmpty) {
       return const ColoredBox(color: Color(0xFF1B1E28));
     }
-    return CachedFeedImage(
-      url: poster,
-      fit: widget.fit,
-      memCacheWidth: 720,
-    );
+    return CachedFeedImage(url: poster, fit: widget.fit, memCacheWidth: 720);
   }
 
   Widget _buildBody() {
@@ -251,8 +246,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.videocam_off_outlined,
-                    color: Colors.white38, size: 36),
+                const Icon(
+                  Icons.videocam_off_outlined,
+                  color: Colors.white38,
+                  size: 36,
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   Text(

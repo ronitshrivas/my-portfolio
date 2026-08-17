@@ -15,6 +15,7 @@ import 'package:innovator/core/config/api_config.dart';
 import 'package:innovator/innovator/data/models/feed_models.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
 import 'services/auth_session.dart';
+import 'services/pending_post.dart';
 import 'package:innovator/innovator/data/sources/feed_api.dart';
 import 'widgets/cached_feed_image.dart';
 import 'widgets/liquid_button.dart';
@@ -48,16 +49,21 @@ class PostSection extends StatefulWidget {
     super.key,
     required this.authorName,
     required this.onPosted,
+    this.onSubmitPending,
+    this.avatarUrl,
     this.contentPadding = EdgeInsets.zero,
   });
 
   final String authorName;
 
-  /// Called once the liquid wave has swallowed the screen; the shell
-  /// switches back to the feed.
+  /// Live avatar from the shared current-user provider (set by the shell) so
+  /// the composer shows the same, freshest avatar as the rest of the app.
+  final String? avatarUrl;
+
   final VoidCallback onPosted;
 
-  /// Vertical clearances from the shell (kept clear of the docked bar).
+  final void Function(PendingPost pending)? onSubmitPending;
+
   final EdgeInsets contentPadding;
 
   @override
@@ -143,6 +149,13 @@ class _PostSectionState extends State<PostSection>
   }
 
   Future<void> _loadAvatar() async {
+    // Prefer the avatar handed down from the shell (shared provider) — it's the
+    // freshest, resolved URL. Only fetch as a fallback if none was provided.
+    final provided = widget.avatarUrl?.trim();
+    if (provided != null && provided.isNotEmpty) {
+      setState(() => _avatarUrl = provided);
+      return;
+    }
     try {
       final me = await ProfileApi().getMe();
       if (!mounted) return;
@@ -410,6 +423,26 @@ class _PostSectionState extends State<PostSection>
           'Add text or a photo/video. PDF and other files are not uploaded yet.',
         );
       }
+
+      // Instagram-style: hand the composed post to the shell, which uploads it
+      // in the background, and return to the feed immediately. The feed shows a
+      // "posting…" card; the user can keep using the app meanwhile.
+      final handoff = widget.onSubmitPending;
+      if (handoff != null) {
+        handoff(
+          PendingPost(
+            content: content,
+            categoryIds: _selectedCategoryIds.toList(),
+            media: media,
+          ),
+        );
+        if (!mounted) return;
+        HapticFeedback.lightImpact();
+        widget.onPosted();
+        return;
+      }
+
+      // Fallback (no shell handoff): upload inline as before.
       await _feedApi.createPost(
         content: content,
         categoryIds: _selectedCategoryIds.toList(),
@@ -1239,7 +1272,12 @@ class _AttachmentPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final images =
         attachments
-            .where((a) => a.kind == AttachmentKind.image && a.path != null)
+            .where(
+              (a) =>
+                  a.kind == AttachmentKind.image &&
+                  ((a.bytes != null && a.bytes!.isNotEmpty) ||
+                      (a.path != null && a.path!.isNotEmpty)),
+            )
             .toList();
     final others = attachments.where((a) => !images.contains(a)).toList();
 

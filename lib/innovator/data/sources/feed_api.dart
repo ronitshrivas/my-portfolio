@@ -27,6 +27,7 @@ class FeedApi {
   Future<FeedPage> getFeed({
     int page = 1,
     int pageSize = ApiConfig.feedPageSize,
+    String? sessionId,
   }) async {
     final envelope = await _client.get<FeedPage>(
       ApiConfig.feedBaseUrl,
@@ -34,6 +35,9 @@ class FeedApi {
       query: {
         'page': '$page',
         'pageSize': '$pageSize',
+        // Seeds the ranked order: same sessionId = stable pages, a new one =
+        // fresh ordering (generated on each pull-to-refresh).
+        if (sessionId != null && sessionId.isNotEmpty) 'sessionId': sessionId,
       },
       parse: (raw) => FeedPage.fromJson(
         Map<String, dynamic>.from(raw as Map? ?? const {}),
@@ -158,6 +162,23 @@ class FeedApi {
       parse: (raw) => (raw as num?)?.toInt() ?? 0,
     );
     return envelope.data ?? 0;
+  }
+
+  /// Batch-reports the top-level feed post ids the user actually saw so the
+  /// ranked feed stops re-showing them. Idempotent + fire-and-forget: failures
+  /// are swallowed and never surfaced to the UI.
+  Future<void> reportViews(List<String> postIds) async {
+    if (postIds.isEmpty) return;
+    try {
+      await _client.post<Object?>(
+        ApiConfig.feedBaseUrl,
+        '/api/feed/views',
+        body: {'post_ids': postIds},
+        parse: (_) => null,
+      );
+    } catch (_) {
+      // Silent — view reporting must never affect the user.
+    }
   }
 
   Future<List<FeedCategory>> categories({bool forceRefresh = false}) async {

@@ -17,7 +17,11 @@ import 'package:innovator/core/config/api_config.dart';
 import 'package:innovator/innovator/data/sources/auth_api.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
 import 'account/follow_requests_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:innovator/innovator/data/sources/feed_api.dart';
+import 'package:innovator/innovator/providers/innovator_providers.dart';
 import 'services/auth_session.dart';
+import 'services/pending_post.dart';
 import 'services/push_service.dart';
 import 'package:innovator/ecommerce/presentation/pages/shop_page.dart';
 import 'widgets/animated_blob_background.dart';
@@ -27,20 +31,16 @@ import 'widgets/news_feed_section.dart';
 
 const _ink = BrandColors.ink;
 
-/// Post-login dashboard: the news feed, a glass drawer, and a dockable
-/// liquid nav bar. Drag the bar (it melts into the logo orb) toward any
-/// edge — the target edge glows while you drag — and drop to dock it
-/// there; it springs back into shape on arrival.
-class DashboardPage extends StatefulWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key, required this.email});
 
   final String email;
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage> {
   // Bar layout: Chat, E-learning, Search · [logo] · Post, Shop, Menu.
   static const _navLeading = [
     LiquidNavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Chat'),
@@ -60,6 +60,9 @@ class _DashboardPageState extends State<DashboardPage> {
   NavDock _dock = NavDock.bottom;
   int _selected = -1;
   int _feedGeneration = 0;
+
+  PendingPost? _pendingPost;
+  final _feedApiForUpload = FeedApi();
   bool _showCart = false;
   bool _showProfile = false;
   bool _showNotifications = false;
@@ -99,14 +102,11 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     if (type == 'follow') {
       Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const FollowRequestsPage(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const FollowRequestsPage()),
       );
       return;
     }
-    // like / comment / mention / repost, or anything with a related post →
-    // land on the notifications list so the user sees the item in context.
+
     setState(() {
       _showNotifications = true;
       _showProfile = false;
@@ -149,13 +149,14 @@ class _DashboardPageState extends State<DashboardPage> {
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 380),
         reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (_, animation, __) => FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-          child: SettingsPage(
-            appVersion: '1.0.0',
-            onLoggedOut: _logout,
-          ),
-        ),
+        pageBuilder:
+            (_, animation, __) => FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ),
+              child: SettingsPage(appVersion: '1.0.0', onLoggedOut: _logout),
+            ),
       ),
     );
   }
@@ -171,6 +172,44 @@ class _DashboardPageState extends State<DashboardPage> {
                 FadeTransition(opacity: animation, child: const LoginPage()),
       ),
     );
+  }
+
+  /// Receives a composed post from the composer, shows it as "posting…" in the
+  /// feed, and uploads it in the background so the app stays usable.
+  void _startPendingPost(PendingPost pending) {
+    setState(() => _pendingPost = pending);
+    _uploadPending(pending);
+  }
+
+  Future<void> _uploadPending(PendingPost pending) async {
+    try {
+      await _feedApiForUpload.createPost(
+        content: pending.content,
+        categoryIds: pending.categoryIds,
+        media: pending.media,
+      );
+      if (!mounted) return;
+      // Done — drop the posting card and refresh the feed so the real post
+      // appears from the server.
+      setState(() {
+        _pendingPost = null;
+        _feedGeneration++;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => pending.status = PendingPostStatus.failed);
+    }
+  }
+
+  void _retryPending() {
+    final pending = _pendingPost;
+    if (pending == null) return;
+    setState(() => pending.status = PendingPostStatus.uploading);
+    _uploadPending(pending);
+  }
+
+  void _dismissPending() {
+    setState(() => _pendingPost = null);
   }
 
   void _onNavSelect(int index) {
@@ -309,13 +348,21 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Live avatar from the shared current-user provider so an avatar change on
+    // the profile page reflects here (drawer) instantly. Falls back to the
+    // locally-loaded avatar until the provider hydrates.
+    final liveAvatar = ref.watch(currentUserProvider.select((u) => u?.avatar));
+    final drawerAvatar =
+        (liveAvatar != null && liveAvatar.trim().isNotEmpty)
+            ? liveAvatar
+            : _avatarUrl;
     return Scaffold(
       key: _scaffoldKey,
       drawerScrimColor: _ink.withValues(alpha: .06),
       drawer: GlassDrawer(
         name: _displayName,
         title: 'Premium Member',
-        avatarUrl: _avatarUrl,
+        avatarUrl: drawerAvatar,
         onLogout: _logout,
         onProfile:
             () => setState(() {
@@ -455,17 +502,18 @@ class _DashboardPageState extends State<DashboardPage> {
                           ? PostSection(
                             key: const ValueKey('post'),
                             authorName: _displayName,
+                            avatarUrl: drawerAvatar,
                             contentPadding: _feedPadding,
-                            onPosted:
-                                () => setState(() {
-                                  _feedGeneration++;
-                                  _selected = -1;
-                                }),
+                            onSubmitPending: _startPendingPost,
+                            onPosted: () => setState(() => _selected = -1),
                           )
                           : NewsFeedSection(
                             key: ValueKey('feed-$_feedGeneration'),
                             controller: _scroll,
                             padding: _edgeToEdgeFeedPadding,
+                            pendingPost: _pendingPost,
+                            onRetryPending: _retryPending,
+                            onDismissPending: _dismissPending,
                           ),
                 ),
               ),

@@ -1,9 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import '../theme/brand_colors.dart';
 import 'cached_feed_image.dart';
 import 'liquid_pressable.dart';
@@ -19,9 +17,6 @@ class GlassDrawerItem {
   final VoidCallback? onTap;
 }
 
-/// Navigation drawer in the liquid glass language: a frosted panel with a
-/// profile header on top, menu items in the middle, and logout pinned to
-/// the bottom. Every tile presses like liquid.
 class GlassDrawer extends StatelessWidget {
   const GlassDrawer({
     super.key,

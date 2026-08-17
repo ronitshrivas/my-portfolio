@@ -1,11 +1,7 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-
 import '../theme/brand_colors.dart';
 
-/// Frosted glass panel: backdrop blur, inner sheen gradient, and a
-/// specular rim that is brighter on the top-left (where the "light" hits).
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -79,20 +75,21 @@ class _SpecularRimPainter extends CustomPainter {
       rect.deflate(.75),
       Radius.circular(borderRadius),
     );
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..shader = SweepGradient(
-        center: Alignment.topLeft,
-        colors: [
-          Colors.white.withValues(alpha: .95),
-          Colors.white.withValues(alpha: .35),
-          Colors.white.withValues(alpha: .65),
-          Colors.white.withValues(alpha: .35),
-          Colors.white.withValues(alpha: .95),
-        ],
-        stops: const [0, .3, .5, .75, 1],
-      ).createShader(rect);
+    final paint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..shader = SweepGradient(
+            center: Alignment.topLeft,
+            colors: [
+              Colors.white.withValues(alpha: .95),
+              Colors.white.withValues(alpha: .35),
+              Colors.white.withValues(alpha: .65),
+              Colors.white.withValues(alpha: .35),
+              Colors.white.withValues(alpha: .95),
+            ],
+            stops: const [0, .3, .5, .75, 1],
+          ).createShader(rect);
     canvas.drawRRect(rrect, paint);
   }
 

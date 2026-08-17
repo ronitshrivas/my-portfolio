@@ -118,6 +118,43 @@ class UserProfile {
     return 'Innovator';
   }
 
+  UserProfile copyWith({
+    String? fullName,
+    String? bio,
+    String? avatar,
+    String? coverImage,
+    String? occupation,
+    int? followersCount,
+    int? followingCount,
+    bool? isFollowed,
+  }) {
+    return UserProfile(
+      id: id,
+      authUserId: authUserId,
+      username: username,
+      fullName: fullName ?? this.fullName,
+      email: email,
+      role: role,
+      bio: bio ?? this.bio,
+      avatar: avatar ?? this.avatar,
+      coverImage: coverImage ?? this.coverImage,
+      dateOfBirth: dateOfBirth,
+      phone: phone,
+      gender: gender,
+      address: address,
+      education: education,
+      occupation: occupation ?? this.occupation,
+      interests: interests,
+      educations: educations,
+      occupations: occupations,
+      links: links,
+      followersCount: followersCount ?? this.followersCount,
+      followingCount: followingCount ?? this.followingCount,
+      isFollowed: isFollowed ?? this.isFollowed,
+      createdAt: createdAt,
+    );
+  }
+
   /// Snake-case JSON matching [fromJson], used for Hive caching.
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -155,7 +192,7 @@ class UserProfile {
       email: json['email'] as String?,
       role: json['role'] as String?,
       bio: json['bio'] as String?,
-      avatar: json['avatar'] as String?,
+      avatar: resolveProfileAvatar(json['avatar'] as String?),
       coverImage: resolveProfileAvatar(json['cover_image'] as String?),
       dateOfBirth: json['date_of_birth'] as String?,
       phone: json['phone'] as String?,

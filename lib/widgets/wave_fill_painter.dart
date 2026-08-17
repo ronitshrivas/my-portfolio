@@ -1,10 +1,6 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 
-/// Paints a body of liquid filled to [fill] (0..1+ of the height) whose
-/// surface undulates with a travelling sine wave. Drive [phase] from a
-/// repeating animation to keep the surface in motion.
 class WaveFillPainter extends CustomPainter {
   WaveFillPainter({
     required this.phase,

@@ -1,19 +1,8 @@
 import 'dart:math' as math;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-
 import '../services/media_cache.dart';
 
-/// Frosted "liquid glass" surface.
-///
-/// By default it stays cheap: a translucent tint with a top-light sheen and a
-/// glossy highlight border, no live [BackdropFilter] — safe to use on many
-/// surfaces at once without hurting scroll.
-///
-/// Set [blur] to opt a surface into a real backdrop blur so the content behind
-/// it actually refracts through. That costs a compositing layer, so reserve it
-/// for hero surfaces (one per card), not every pill or sheet.
 class FastGlass extends StatelessWidget {
   const FastGlass({
     super.key,
@@ -44,23 +33,7 @@ class FastGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final content =
         padding == null ? child : Padding(padding: padding!, child: child);
-
-    // FEED / SCROLLING SURFACES ([blur] is set): a translucent "liquid glass"
-    // card — the app background shows softly through the card (the frosted
-    // transparency look) via a semi-transparent white gradient + a bright edge.
-    //
-    // Crucially there is NO live BackdropFilter here: real per-card backdrop
-    // blur is what made the feed lag, and iOS bouncing physics is what made the
-    // text vibrate (both already removed). A static translucent gradient is
-    // cheap to paint, and wrapping the card in a RepaintBoundary keeps each
-    // card's paint isolated, so this glass look does not affect scroll.
     if (blur) {
-      // Matches the frosted-white card in the reference: a bright translucent
-      // fill (background tints softly through), a faint bright edge, and one
-      // gentle lift shadow. Still NO live BackdropFilter — that is the only
-      // thing that ever caused lag. A single soft shadow + static gradient are
-      // cheap, and the RepaintBoundary isolates each card's paint, so scroll
-      // stays smooth.
       return RepaintBoundary(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -70,7 +43,9 @@ class FastGlass extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Color(0xCCFFFFFF), // ~80% white top (bright glass sheen)
-                Color(0x99FFFFFF), // ~60% white bottom (background reads through)
+                Color(
+                  0x99FFFFFF,
+                ), // ~60% white bottom (background reads through)
               ],
             ),
             border: Border.all(
@@ -206,14 +181,6 @@ class FastAssetImage extends StatelessWidget {
   }
 }
 
-/// Smooth, pixel-stable feed scroll.
-///
-/// This extends [ClampingScrollPhysics] (Android-native) rather than the
-/// iOS BouncingScrollPhysics. A bouncing spring keeps issuing tiny sub-pixel
-/// position corrections at low velocity, which makes text visibly shimmer /
-/// "vibrate" during slow scrolling. Clamping physics settles to whole-pixel
-/// offsets, so text stays crisp and steady — the behaviour big Android feeds
-/// (LinkedIn, Instagram, X) use. The name is kept so existing call sites work.
 class SlipperyScrollPhysics extends ClampingScrollPhysics {
   const SlipperyScrollPhysics({super.parent});
 

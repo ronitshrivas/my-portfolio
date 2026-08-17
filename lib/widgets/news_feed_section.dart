@@ -16,6 +16,9 @@ import '../services/auth_session.dart';
 import 'package:innovator/innovator/data/sources/feed_api.dart';
 import '../services/feed_cache.dart';
 import '../services/media_cache.dart';
+import '../services/pending_post.dart';
+import '../services/sound_player.dart';
+import '../services/view_reporter.dart';
 import 'package:innovator/innovator/data/sources/post_view_recorder.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
 import '../theme/brand_colors.dart';
@@ -27,10 +30,6 @@ import 'liquid_pressable.dart';
 const _ink = BrandColors.ink;
 const _likeRed = Color(0xFFE0245E);
 const _repostGreen = Color(0xFF17A275);
-
-/// Feed media frame — clamps the width:height ratio so nothing looks
-/// elongated. Portrait is capped at a gentle 0.9 (not the taller 4:5) and
-/// landscape at 1.91:1, matching Instagram's comfortable range.
 const _mediaMinRatio = 0.9;
 const _mediaMaxRatio = 1.91;
 
@@ -40,10 +39,17 @@ class NewsFeedSection extends StatefulWidget {
     super.key,
     this.controller,
     this.padding = EdgeInsets.zero,
+    this.pendingPost,
+    this.onRetryPending,
+    this.onDismissPending,
   });
 
   final ScrollController? controller;
   final EdgeInsets padding;
+
+  final PendingPost? pendingPost;
+  final VoidCallback? onRetryPending;
+  final VoidCallback? onDismissPending;
 
   @override
   State<NewsFeedSection> createState() => _NewsFeedSectionState();
@@ -53,6 +59,12 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
   final _feedApi = FeedApi();
   final _posts = <FeedPostDto>[];
   var _page = 1;
+
+  /// Seeds the ranked ordering. A NEW value is generated on first load and on
+  /// every pull-to-refresh (fresh order); it stays fixed across pagination of
+  /// the same session so page 2 continues page 1.
+  String _feedSessionId = DateTime.now().microsecondsSinceEpoch.toString();
+
   var _loading = true;
   var _loadingMore = false;
   var _hasMore = true;
@@ -62,6 +74,10 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
 
   ScrollController get _scroll =>
       widget.controller ?? (_ownedController ??= ScrollController());
+
+  /// Batches ids of posts the user actually sees so the ranked feed stops
+  /// re-showing them. Only the main feed list feeds this.
+  final ViewReporter _viewReporter = ViewReporter();
 
   @override
   void initState() {
@@ -73,6 +89,7 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
 
   @override
   void dispose() {
+    _viewReporter.dispose();
     _scroll.removeListener(_onScroll);
     _ownedController?.dispose();
     super.dispose();
@@ -100,6 +117,14 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
 
   Future<void> _load({required bool reset}) async {
     if (reset) {
+      // A pull-to-refresh (there are already posts on screen) starts a NEW
+      // ranking session and drops the page cache so a genuinely fresh order
+      // loads. The very first load keeps its initial session + hydrated cache.
+      final isRefresh = _posts.isNotEmpty;
+      if (isRefresh) {
+        _feedSessionId = DateTime.now().microsecondsSinceEpoch.toString();
+        FeedCache.invalidate();
+      }
       setState(() {
         _error = null;
         _refreshing = _posts.isNotEmpty;
@@ -133,6 +158,7 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
       final page = await _feedApi.getFeed(
         page: requestPage,
         pageSize: ApiConfig.feedPageSize,
+        sessionId: _feedSessionId,
       );
       if (!mounted) return;
 
@@ -198,6 +224,7 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
       final data = await _feedApi.getFeed(
         page: page,
         pageSize: ApiConfig.feedPageSize,
+        sessionId: _feedSessionId,
       );
       FeedCache.putPage(page, data.results, hasMore: data.hasMore);
       InnovatorMediaCache.prefetchPosts(data.results);
@@ -257,7 +284,11 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
     // One screen of look-ahead keeps scrolling smooth without building a huge
     // number of offscreen cards each frame.
     final cacheExtent = MediaQuery.sizeOf(context).height;
-    final itemCount = _posts.length + (_loadingMore ? 1 : 0);
+    // A leading "posting…" card occupies index 0 while an upload is in flight.
+    final hasPending = widget.pendingPost != null;
+    final leading = hasPending ? 1 : 0;
+    final baseCount = _posts.length + (_loadingMore ? 1 : 0);
+    final itemCount = leading + (baseCount == 0 ? 1 : baseCount);
 
     return RefreshIndicator(
       onRefresh: () => _load(reset: true),
@@ -266,7 +297,7 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
           ListView.builder(
             controller: _scroll,
             padding: widget.padding,
-            itemCount: itemCount == 0 ? 1 : itemCount,
+            itemCount: itemCount,
             cacheExtent: cacheExtent,
             physics: const SlipperyScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
@@ -274,7 +305,18 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
             addAutomaticKeepAlives: false,
             addRepaintBoundaries: true,
             addSemanticIndexes: false,
-            itemBuilder: (context, index) {
+            itemBuilder: (context, rawIndex) {
+              if (hasPending && rawIndex == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _PostingCard(
+                    pending: widget.pendingPost!,
+                    onRetry: widget.onRetryPending,
+                    onDismiss: widget.onDismissPending,
+                  ),
+                );
+              }
+              final index = rawIndex - leading;
               if (_posts.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.only(top: 48),
@@ -299,11 +341,21 @@ class _NewsFeedSectionState extends State<NewsFeedSection> {
                 padding: EdgeInsets.only(
                   bottom: index == _posts.length - 1 && !_loadingMore ? 0 : 12,
                 ),
-                child: RepaintBoundary(
-                  child: FeedCard(
-                    post: item,
-                    onChanged: _replacePost,
-                    onDeleted: _removePost,
+                // Record the id once the card is ≥50% visible so the ranked
+                // feed stops re-showing it. No setState — just buffer the id.
+                child: VisibilityDetector(
+                  key: ValueKey('feed-vis-${item.id}'),
+                  onVisibilityChanged: (info) {
+                    if (info.visibleFraction >= 0.5) {
+                      _viewReporter.record(item.id);
+                    }
+                  },
+                  child: RepaintBoundary(
+                    child: FeedCard(
+                      post: item,
+                      onChanged: _replacePost,
+                      onDeleted: _removePost,
+                    ),
                   ),
                 ),
               );
@@ -689,6 +741,8 @@ class FeedCardState extends State<FeedCard> {
 
     final next = isSame ? <String>[] : <String>[type];
     final delta = isSame ? -1 : (hadReaction ? 0 : 1);
+    // Play the reaction sound when adding/changing a reaction (not on clear).
+    if (!isSame) SoundPlayer.instance.reaction();
 
     widget.onChanged(
       previous.copyWith(
@@ -825,27 +879,28 @@ class FeedCardState extends State<FeedCard> {
     final me = AuthSession.instance.userId;
     if (me != null && me == post.userId) return;
     HapticFeedback.selectionClick();
+    SoundPlayer.instance.follow();
     final wasStatus = post.followStatus;
     final next = !post.isFollowed;
-    widget.onChanged(post.copyWith(
-      isFollowed: next,
-      followStatus: next ? 'accepted' : 'none',
-    ));
+    widget.onChanged(
+      post.copyWith(isFollowed: next, followStatus: next ? 'accepted' : 'none'),
+    );
     setState(() => _busy = true);
     try {
       final result = await _profileApi.toggleFollow(post.userId);
-      widget.onChanged(post.copyWith(
-        isFollowed: result.isFollowing,
-        followStatus: result.status,
-      ));
+      widget.onChanged(
+        post.copyWith(
+          isFollowed: result.isFollowing,
+          followStatus: result.status,
+        ),
+      );
       // Drop the cached feed pages so a later refresh re-reads the real
       // is_followed from the server instead of a stale pre-follow snapshot.
       FeedCache.invalidate();
     } on ApiException catch (e) {
-      widget.onChanged(post.copyWith(
-        isFollowed: !next,
-        followStatus: wasStatus,
-      ));
+      widget.onChanged(
+        post.copyWith(isFollowed: !next, followStatus: wasStatus),
+      );
       _toast(e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1090,14 +1145,15 @@ class _SharedPostPreview extends StatelessWidget {
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 420),
         reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (_, animation, __) => FadeTransition(
-          opacity: animation,
-          child: AuthorProfilePage(
-            name: post.displayAuthor,
-            authUserId: post.userId,
-            username: post.username,
-          ),
-        ),
+        pageBuilder:
+            (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: AuthorProfilePage(
+                name: post.displayAuthor,
+                authUserId: post.userId,
+                username: post.username,
+              ),
+            ),
       ),
     );
   }
@@ -2899,12 +2955,11 @@ class _FollowButton extends StatelessWidget {
     // Pending and following both use the light "already actioned" pill.
     final actioned = following || pending;
     final labelColor = actioned ? _ink : Colors.white;
-    final label = pending
-        ? 'Requested'
-        : (following ? 'Following' : 'Follow');
-    final icon = pending
-        ? Icons.schedule_rounded
-        : (following ? Icons.check_rounded : Icons.add_rounded);
+    final label = pending ? 'Requested' : (following ? 'Following' : 'Follow');
+    final icon =
+        pending
+            ? Icons.schedule_rounded
+            : (following ? Icons.check_rounded : Icons.add_rounded);
     return FastTap(
       onTap: () {
         HapticFeedback.mediumImpact();
@@ -2917,13 +2972,15 @@ class _FollowButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          color: actioned
-              ? Colors.white.withValues(alpha: .78)
-              : BrandColors.secondarySurface,
+          color:
+              actioned
+                  ? Colors.white.withValues(alpha: .78)
+                  : BrandColors.secondarySurface,
           border: Border.all(
-            color: actioned
-                ? _ink.withValues(alpha: .22)
-                : Colors.white.withValues(alpha: .28),
+            color:
+                actioned
+                    ? _ink.withValues(alpha: .22)
+                    : Colors.white.withValues(alpha: .28),
           ),
         ),
         child: Row(
@@ -2941,6 +2998,147 @@ class _FollowButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The "posting…" card shown at the top of the feed while an upload runs in
+/// the background. On failure it flips to a Retry / Dismiss state.
+class _PostingCard extends StatelessWidget {
+  const _PostingCard({required this.pending, this.onRetry, this.onDismiss});
+
+  final PendingPost pending;
+  final VoidCallback? onRetry;
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = pending.status == PendingPostStatus.failed;
+    final preview = pending.previewBytes;
+    return FastGlass(
+      borderRadius: BorderRadius.circular(26),
+      blur: true,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          if (preview != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                preview,
+                width: 52,
+                height: 52,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+              ),
+            )
+          else
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: _ink.withValues(alpha: .06),
+              ),
+              child: Icon(
+                Icons.article_outlined,
+                color: _ink.withValues(alpha: .5),
+              ),
+            ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  failed ? 'Post failed to upload' : 'Posting…',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: failed ? const Color(0xFFC0392B) : _ink,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (failed)
+                  Text(
+                    'Check your connection and try again.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _ink.withValues(alpha: .55),
+                    ),
+                  )
+                else
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      minHeight: 4,
+                      backgroundColor: _ink.withValues(alpha: .1),
+                      valueColor: const AlwaysStoppedAnimation(
+                        BrandColors.secondarySurface,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (failed) ...[
+            const SizedBox(width: 8),
+            _PostingAction(
+              label: 'Retry',
+              filled: true,
+              onTap: onRetry ?? () {},
+            ),
+            const SizedBox(width: 6),
+            _PostingAction(
+              label: 'Dismiss',
+              filled: false,
+              onTap: onDismiss ?? () {},
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PostingAction extends StatelessWidget {
+  const _PostingAction({
+    required this.label,
+    required this.filled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool filled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FastTap(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color:
+              filled
+                  ? BrandColors.secondarySurface
+                  : Colors.white.withValues(alpha: .6),
+          border:
+              filled ? null : Border.all(color: _ink.withValues(alpha: .18)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: filled ? Colors.white : _ink.withValues(alpha: .8),
+          ),
         ),
       ),
     );

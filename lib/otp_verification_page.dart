@@ -15,8 +15,6 @@ import 'widgets/liquid_button.dart';
 
 const _ink = BrandColors.ink;
 
-/// Signup email verification — the user enters the 6-digit OTP that was
-/// emailed automatically right after registering.
 class OtpVerificationPage extends StatefulWidget {
   const OtpVerificationPage({super.key, required this.email});
 
@@ -112,10 +110,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
 
   void _toast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(message),
-      ),
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)),
     );
   }
 
@@ -129,8 +124,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: FadeTransition(
                   opacity: _fade,
                   child: SlideTransition(
@@ -174,8 +171,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                           if (_busy)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 14),
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.4),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
                             )
                           else
                             LiquidButton(

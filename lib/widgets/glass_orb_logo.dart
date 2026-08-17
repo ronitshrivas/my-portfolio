@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../theme/brand_colors.dart';
 
-/// Small glass sphere with the Innovator mark — used on auth screens.
 class GlassOrbLogo extends StatelessWidget {
   const GlassOrbLogo({super.key, this.size = 66});
 
