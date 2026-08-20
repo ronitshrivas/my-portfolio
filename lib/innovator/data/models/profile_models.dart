@@ -272,6 +272,68 @@ class ProfileListUser {
   }
 }
 
+/// A "Suggested for you" person from `GET /api/users/suggested`.
+class SuggestedUser {
+  const SuggestedUser({
+    required this.id,
+    this.username,
+    this.fullName,
+    this.avatar,
+    this.occupation,
+    this.mutualCount = 0,
+    this.reason,
+    this.followStatus = 'none',
+  });
+
+  /// Auth user id (used by follow / dismiss / profile-open).
+  final String id;
+  final String? username;
+  final String? fullName;
+  final String? avatar;
+  final String? occupation;
+  final int mutualCount;
+  final String? reason;
+
+  /// Local follow state: none | pending | accepted.
+  final String followStatus;
+
+  bool get isFollowing => followStatus == 'accepted';
+  bool get isPending => followStatus == 'pending';
+
+  String get displayName {
+    final full = fullName?.trim();
+    if (full != null && full.isNotEmpty) return full;
+    final user = username?.trim();
+    if (user != null && user.isNotEmpty) return '@$user';
+    return 'User';
+  }
+
+  SuggestedUser copyWith({String? followStatus}) {
+    return SuggestedUser(
+      id: id,
+      username: username,
+      fullName: fullName,
+      avatar: avatar,
+      occupation: occupation,
+      mutualCount: mutualCount,
+      reason: reason,
+      followStatus: followStatus ?? this.followStatus,
+    );
+  }
+
+  factory SuggestedUser.fromJson(Map<String, dynamic> json) {
+    return SuggestedUser(
+      id: json['id'] as String? ?? '',
+      username: json['username'] as String?,
+      fullName: json['full_name'] as String?,
+      avatar: resolveProfileAvatar(json['avatar'] as String?),
+      occupation: (json['occupation'] as String?)?.trim(),
+      mutualCount: (json['mutual_count'] as num?)?.toInt() ?? 0,
+      reason: (json['reason'] as String?)?.trim(),
+    );
+  }
+}
+
 class FollowToggleResult {
   const FollowToggleResult({
     required this.isFollowing,

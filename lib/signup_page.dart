@@ -143,9 +143,7 @@ class _SignupPageState extends State<SignupPage>
       // New accounts start unverified — send them to enter the emailed OTP.
       if (!result.user.isEmailVerified) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => OtpVerificationPage(email: email),
-          ),
+          MaterialPageRoute(builder: (_) => OtpVerificationPage(email: email)),
         );
         return;
       }
@@ -178,16 +176,18 @@ class _SignupPageState extends State<SignupPage>
   }
 
   Future<void> _enterDashboard() async {
-    final resolved = AuthSession.instance.email ??
+    final resolved =
+        AuthSession.instance.email ??
         _emailController.text.trim().ifEmpty('demo@innovator.com');
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 450),
-        pageBuilder: (_, animation, __) => FadeTransition(
-          opacity: animation,
-          child: DashboardPage(email: resolved),
-        ),
+        pageBuilder:
+            (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: DashboardPage(email: resolved),
+            ),
       ),
       (_) => false,
     );
@@ -285,15 +285,16 @@ class _SignupPageState extends State<SignupPage>
                           const SizedBox(height: 14),
                           GlassGenderSelector(
                             value: _gender,
-                            onChanged: (gender) =>
-                                setState(() => _gender = gender),
+                            onChanged:
+                                (gender) => setState(() => _gender = gender),
                           ),
                           const SizedBox(height: 24),
                           if (_busy)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 14),
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.4),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
                             )
                           else ...[
                             LiquidButton(label: 'Sign Up', onTap: _signUp),
@@ -427,8 +428,11 @@ class _UsernameStatus extends StatelessWidget {
           else if (available == true)
             Row(
               children: const [
-                Icon(Icons.check_circle_rounded,
-                    size: 15, color: Color(0xFF17A275)),
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 15,
+                  color: Color(0xFF17A275),
+                ),
                 SizedBox(width: 6),
                 Text(
                   'Username available',

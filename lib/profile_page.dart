@@ -1201,9 +1201,16 @@ class _CoverHeader extends StatelessWidget {
                 else
                   Consumer(
                     builder: (context, ref, _) {
-                      final liveCover = ref.watch(
-                        currentUserProvider.select((u) => u?.coverImage),
-                      );
+                      // Only the OWN profile (where the cover can be changed)
+                      // watches the shared current-user cover — otherwise every
+                      // other user's profile would show the signed-in user's
+                      // cover. Other profiles use only their own [coverUrl].
+                      final ownProfile = onChangeCover != null;
+                      final liveCover = ownProfile
+                          ? ref.watch(
+                              currentUserProvider.select((u) => u?.coverImage),
+                            )
+                          : null;
                       final url = (liveCover != null && liveCover.isNotEmpty)
                           ? liveCover
                           : coverUrl;

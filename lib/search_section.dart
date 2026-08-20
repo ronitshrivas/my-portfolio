@@ -11,6 +11,7 @@ import 'profile_page.dart';
 import 'package:innovator/innovator/data/sources/search_api.dart';
 import 'theme/brand_colors.dart';
 import 'widgets/liquid_pressable.dart';
+import 'widgets/suggested_people_row.dart';
 import 'widgets/wave_fill_painter.dart';
 
 const _ink = BrandColors.ink;
@@ -260,6 +261,8 @@ class _SearchSectionState extends State<SearchSection>
       children: [
         _buildBar(),
         const SizedBox(height: 18),
+        // Suggested-people row; hides itself when there are no suggestions.
+        const SuggestedPeopleRow(),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
           switchInCurve: Curves.easeOutCubic,

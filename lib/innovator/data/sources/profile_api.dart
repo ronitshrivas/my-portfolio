@@ -259,6 +259,36 @@ class ProfileApi {
   Future<List<ProfileListUser>> blockedList() =>
       _listUsers('/api/users/blocked-list');
 
+  /// "Suggested for you" people to follow.
+  Future<List<SuggestedUser>> suggestedUsers({int limit = 10}) async {
+    final envelope = await _client.get<List<SuggestedUser>>(
+      ApiConfig.profileBaseUrl,
+      '/api/users/suggested',
+      query: {'limit': '$limit'},
+      parse: (raw) {
+        if (raw is! List) return <SuggestedUser>[];
+        return raw
+            .whereType<Map>()
+            .map((e) => SuggestedUser.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      },
+    );
+    return envelope.data ?? const [];
+  }
+
+  /// Dismisses a suggestion (hidden 30 days). Fire-and-forget; swallow errors.
+  Future<void> dismissSuggestion(String id) async {
+    try {
+      await _client.post<Object?>(
+        ApiConfig.profileBaseUrl,
+        '/api/users/suggested/$id/dismiss',
+        parse: (_) => null,
+      );
+    } catch (_) {
+      // Non-critical — the card is already removed locally.
+    }
+  }
+
   Future<FollowToggleResult> toggleFollow(String targetAuthUserId) async {
     final envelope = await _client.post<FollowToggleResult>(
       ApiConfig.profileBaseUrl,

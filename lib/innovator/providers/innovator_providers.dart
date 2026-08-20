@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:innovator/core/cache/hive_cache.dart';
@@ -219,4 +221,69 @@ final userSearchProvider = FutureProvider.family<List<SearchUserHit>, String>((
 
 final suggestedUsersProvider = FutureProvider<List<SearchUserHit>>((ref) {
   return ref.watch(searchApiProvider).suggestedUsers();
+});
+
+/// "Suggested for you" people-to-follow row, from ProfileService. Holds the
+/// list and lets each card update follow/dismiss without rebuilding the screen.
+class SuggestedPeopleNotifier
+    extends StateNotifier<AsyncValue<List<SuggestedUser>>> {
+  SuggestedPeopleNotifier(this._api) : super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final ProfileApi _api;
+
+  Future<void> load() async {
+    state = const AsyncValue.loading();
+    try {
+      final people = await _api.suggestedUsers(limit: 10);
+      state = AsyncValue.data(people);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> refresh() => load();
+
+  List<SuggestedUser>? get _current => state.valueOrNull;
+
+  void _replace(String id, SuggestedUser Function(SuggestedUser) update) {
+    final list = _current;
+    if (list == null) return;
+    state = AsyncValue.data([
+      for (final u in list) u.id == id ? update(u) : u,
+    ]);
+  }
+
+  /// Follows / unfollows the suggested user; optimistic, reverts on error.
+  Future<void> toggleFollow(String id) async {
+    final list = _current;
+    if (list == null) return;
+    final person = list.firstWhere((u) => u.id == id,
+        orElse: () => const SuggestedUser(id: ''));
+    if (person.id.isEmpty) return;
+    final wasStatus = person.followStatus;
+    final wasFollowing = person.isFollowing || person.isPending;
+    // Optimistic: assume accepted; the server confirms pending/accepted.
+    _replace(id, (u) => u.copyWith(followStatus: wasFollowing ? 'none' : 'accepted'));
+    try {
+      final result = await _api.toggleFollow(id);
+      _replace(id, (u) => u.copyWith(followStatus: result.status));
+    } catch (_) {
+      _replace(id, (u) => u.copyWith(followStatus: wasStatus));
+    }
+  }
+
+  /// Removes the card immediately and tells the server to hide it 30 days.
+  void dismiss(String id) {
+    final list = _current;
+    if (list == null) return;
+    state = AsyncValue.data(list.where((u) => u.id != id).toList());
+    unawaited(_api.dismissSuggestion(id));
+  }
+}
+
+final suggestedPeopleProvider = StateNotifierProvider<SuggestedPeopleNotifier,
+    AsyncValue<List<SuggestedUser>>>((ref) {
+  return SuggestedPeopleNotifier(ref.watch(profileApiProvider));
 });
