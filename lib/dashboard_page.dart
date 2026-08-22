@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'theme/brand_colors.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:innovator/KMS/core/constants/service/auth_wrapper.dart';
 import 'package:innovator/ecommerce/presentation/pages/cart_page.dart';
 import 'chat_page.dart';
+import 'find_friends_page.dart';
+import 'services/chat_socket.dart';
+import 'services/app_update_service.dart';
 import 'package:innovator/elearning/presentation/pages/elearning_page.dart';
 import 'login_page.dart';
 import 'notifications_page.dart';
@@ -71,17 +76,59 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   NavDock? _previewDock;
   String? _avatarUrl;
 
+  StreamSubscription<Map<String, dynamic>>? _chatBadgeSub;
+
+  /// Message ids already counted toward the badge, to ignore duplicate frames.
+  final Set<String> _seenBadgeMessageIds = {};
+
   @override
   void initState() {
     super.initState();
     _loadAvatar();
     // Route notification taps once the shell is mounted.
     PushService.instance.onDeepLink = _handleNotificationTap;
+    // Live-refresh badges when a push arrives while the app is open.
+    PushService.instance.onForegroundMessage = _handleForegroundPush;
     final pending = PushService.instance.takePendingDeepLink();
     if (pending != null) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _handleNotificationTap(pending),
       );
+    }
+    // Prompt for a Play Store update if a newer version is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppUpdateService.instance.checkForUpdate(context);
+    });
+    // Connect the chat socket at shell startup (not just when the Chat tab
+    // opens) so messages arrive — and the badge updates — from any page.
+    ChatSocket.instance.connect();
+    // Bump the Chat badge when a message arrives and the user isn't already on
+    // the Chat tab (where it's read immediately).
+    _chatBadgeSub = ChatSocket.instance.messages.listen((data) {
+      if (!mounted) return;
+      final senderId = (data['SenderId'] ?? data['sender_id'] ?? '').toString();
+      if (senderId == AuthSession.instance.userId) return; // ignore own echoes
+      if (_selected == _chatIndex) return; // already viewing chat
+      // The socket can deliver the same frame twice — dedupe by message id so a
+      // single message only bumps the badge once.
+      final id = (data['Id'] ?? data['id'] ?? '').toString();
+      if (id.isNotEmpty && !_seenBadgeMessageIds.add(id)) return;
+      ref.read(chatUnreadCountProvider.notifier).increment();
+    });
+  }
+
+  /// A push arrived while the app is open — refresh the affected badge live.
+  void _handleForegroundPush(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final type = (data['type'] ?? '').toString().toLowerCase();
+    if (type == 'message') {
+      // Chat badge is bumped by the WebSocket listener; refresh to stay exact.
+      if (_selected != _chatIndex) {
+        ref.read(chatUnreadCountProvider.notifier).refresh();
+      }
+    } else {
+      // Like / comment / follow / repost / new post → a new notification.
+      ref.invalidate(notificationsProvider);
     }
   }
 
@@ -140,6 +187,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     if (PushService.instance.onDeepLink == _handleNotificationTap) {
       PushService.instance.onDeepLink = null;
     }
+    if (PushService.instance.onForegroundMessage == _handleForegroundPush) {
+      PushService.instance.onForegroundMessage = null;
+    }
+    _chatBadgeSub?.cancel();
+    AppUpdateService.instance.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -218,12 +270,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       _scaffoldKey.currentState?.openDrawer();
       return;
     }
+    // Leaving the Chat tab: re-sync the unread count so the badge reflects
+    // any conversations read while it was open.
+    if (_selected == _chatIndex && item.label != 'Chat') {
+      ref.read(chatUnreadCountProvider.notifier).refresh();
+    }
     setState(() {
       _selected = index;
       _showCart = false;
       _showProfile = false;
       _showNotifications = false;
     });
+    if (item.label == 'Chat') {
+      ref.read(chatUnreadCountProvider.notifier).refresh();
+    }
   }
 
   int get _shopIndex => _navItems.indexWhere((i) => i.label == 'Shop');
@@ -356,13 +416,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         (liveAvatar != null && liveAvatar.trim().isNotEmpty)
             ? liveAvatar
             : _avatarUrl;
+    // Live name from shared state so a profile edit reflects in the drawer
+    // instantly; falls back to the session-derived name until it hydrates.
+    final liveName = ref.watch(currentUserProvider.select((u) => u?.fullName));
+    final drawerName = (liveName != null && liveName.trim().isNotEmpty)
+        ? liveName.trim()
+        : _displayName;
     return Scaffold(
       key: _scaffoldKey,
       drawerScrimColor: _ink.withValues(alpha: .06),
       drawer: GlassDrawer(
-        name: _displayName,
+        name: drawerName,
         title: 'Premium Member',
         avatarUrl: drawerAvatar,
+        notificationBadge: ref.watch(notificationUnreadCountProvider),
         onLogout: _logout,
         onProfile:
             () => setState(() {
@@ -371,6 +438,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               _showNotifications = false;
               _selected = -1;
             }),
+        onFindFriends: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const FindFriendsPage()),
+          );
+        },
         onShop:
             () => setState(() {
               _selected = _shopIndex;
@@ -386,12 +458,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               _showNotifications = false;
             }),
         onNotifications:
-            () => setState(() {
-              _showNotifications = true;
-              _showProfile = false;
-              _showCart = false;
-              _selected = -1;
-            }),
+            () {
+              // Refresh the unread count so the badge reflects the latest state
+              // (it clears once the notifications page marks them read).
+              ref.invalidate(notificationsProvider);
+              setState(() {
+                _showNotifications = true;
+                _showProfile = false;
+                _showCart = false;
+                _selected = -1;
+              });
+            },
         onPrivacy: () {
           Navigator.of(context).push(
             PageRouteBuilder(
@@ -457,6 +534,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             key: const ValueKey('notifications'),
                             contentPadding: _feedPadding,
                             onOpen: _openFromNotification,
+                            onReadChanged: () =>
+                                ref.invalidate(notificationsProvider),
                           )
                           : _showProfile
                           ? ProfileSection(
@@ -569,6 +648,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             selectedIndex: _selected,
             onSelect: _onNavSelect,
             onLogoTap: _goToFeed,
+            badges: {'Chat': ref.watch(chatUnreadCountProvider)},
           ),
         ),
       ),

@@ -13,8 +13,9 @@ import 'package:innovator/innovator/data/sources/fcm_token_api.dart';
 /// `vm:entry-point` so it survives tree-shaking and runs when the app is dead.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // No UI work here — the system tray already shows the notification. This
-  // exists so data-only messages are still delivered to the isolate.
+  // The backend sends data-only messages, so the system tray no longer shows
+  // anything on its own — this isolate must render the notification itself.
+  await PushService.instance.showFromMessage(message);
 }
 
 /// End-to-end push notifications: FCM registration, foreground display through
@@ -45,6 +46,10 @@ class PushService {
   /// shell (dashboard) so deep-links land on the right screen.
   void Function(Map<String, dynamic> data)? onDeepLink;
 
+  /// Fires whenever a push arrives while the app is in the foreground. The shell
+  /// uses this to refresh badges (chat / notifications) live.
+  void Function(Map<String, dynamic> data)? onForegroundMessage;
+
   /// One-time local-notifications setup — call from main() before runApp.
   Future<void> initLocalNotifications() async {
     if (_localReady) return;
@@ -66,50 +71,102 @@ class PushService {
       },
     );
 
-    // Android channel for high-importance heads-up notifications.
     final androidPlugin =
         _local.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
+
+    // Android 13+: the local-notifications plugin needs the POST_NOTIFICATIONS
+    // runtime permission granted, otherwise show() silently does nothing.
+    final granted = await androidPlugin?.requestNotificationsPermission();
+    debugPrint('[Push] POST_NOTIFICATIONS granted=$granted');
+
+    // Recreate the channel at MAX importance. Android caches channel settings,
+    // so if it was ever created at a lower importance the heads-up pop-up won't
+    // appear — deleting first forces the new importance to take effect.
+    await androidPlugin?.deleteNotificationChannel(_channelId);
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
         _channelId,
         _channelName,
         description: 'Likes, comments, follows and messages',
-        importance: Importance.high,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
       ),
     );
     _localReady = true;
   }
 
-  /// Requests permission, gets the FCM token, registers it, and wires the
-  /// foreground + tap listeners. Call after a successful login.
-  Future<void> init() async {
-    await initLocalNotifications();
+  bool _listenersAttached = false;
 
-    await _messaging.requestPermission(alert: true, badge: true, sound: true);
+  /// Attaches the foreground-message + tap listeners exactly once. Safe to call
+  /// from main() at launch, before login, so foreground pushes always show.
+  void attachForegroundListener() {
+    if (_listenersAttached) return;
+    _listenersAttached = true;
+    debugPrint('[Push] foreground listener attached');
+    FirebaseMessaging.onMessage.listen(_showForeground);
+    FirebaseMessaging.onMessageOpenedApp.listen((m) => handleTap(m.data));
+  }
+
+  bool _permissionsRequested = false;
+
+  /// Prompts for notification permission (FCM + local plugin) exactly once, and
+  /// enables foreground presentation. Safe to call at launch before login.
+  Future<void> ensurePermissions() async {
+    if (_permissionsRequested) return;
+    _permissionsRequested = true;
+    final settings =
+        await _messaging.requestPermission(alert: true, badge: true, sound: true);
+    debugPrint('[Push] FCM authorizationStatus=${settings.authorizationStatus}');
     await _messaging.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
     );
+  }
 
-    final token = await _messaging.getToken();
-    if (token != null && token.isNotEmpty) {
-      await _registerToken(token);
-    }
+  /// Requests permission, gets the FCM token, registers it, and wires the
+  /// tap-from-cold-start handler. Call after a successful login.
+  Future<void> init() async {
+    await initLocalNotifications();
+    attachForegroundListener();
+    await ensurePermissions();
+
+    // getToken can throw SERVICE_NOT_AVAILABLE when Play Services / the network
+    // is briefly unreachable. Don't let that abort init — retry a few times with
+    // backoff, and rely on onTokenRefresh to catch up if it never succeeds now.
+    await _fetchAndRegisterToken();
 
     _messaging.onTokenRefresh.listen((newToken) {
       _registerToken(newToken);
     });
-
-    FirebaseMessaging.onMessage.listen(_showForeground);
-    FirebaseMessaging.onMessageOpenedApp.listen((m) => handleTap(m.data));
 
     // App launched from a terminated state by tapping a notification.
     final initial = await _messaging.getInitialMessage();
     if (initial != null) {
       handleTap(initial.data);
     }
+  }
+
+  /// Fetches the FCM token with retries. Survives transient
+  /// SERVICE_NOT_AVAILABLE errors so push setup doesn't abort.
+  Future<void> _fetchAndRegisterToken() async {
+    for (var attempt = 1; attempt <= 4; attempt++) {
+      try {
+        final token = await _messaging.getToken();
+        if (token != null && token.isNotEmpty) {
+          debugPrint('[Push] FCM token acquired (attempt $attempt)');
+          await _registerToken(token);
+          return;
+        }
+      } catch (e) {
+        debugPrint('[Push] getToken attempt $attempt failed: $e');
+      }
+      await Future<void>.delayed(Duration(seconds: attempt * 3));
+    }
+    debugPrint('[Push] getToken gave up; onTokenRefresh will retry later');
   }
 
   Future<void> _registerToken(String token) async {
@@ -154,25 +211,68 @@ class PushService {
   }
 
   Future<void> _showForeground(RemoteMessage message) async {
+    debugPrint('[Push] onMessage fired — data=${message.data}');
+    await showFromMessage(message);
+  }
+
+  /// Renders a heads-up notification from an FCM message. Works from both the
+  /// foreground listener and the background isolate, since the backend now
+  /// sends data-only payloads that never auto-display in the tray.
+  Future<void> showFromMessage(RemoteMessage message) async {
+    // Make sure the channel exists even if init() hasn't run yet in this
+    // isolate, so the notification always has a place to land.
+    await initLocalNotifications();
+
+    // Let the shell refresh its badges live (chat / notifications).
+    onForegroundMessage?.call(message.data);
+
     final notification = message.notification;
-    final title = notification?.title ?? message.data['title'] ?? 'Innovator';
-    final body = notification?.body ?? message.data['message'] ?? '';
-    await _local.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+    final data = message.data;
+    final title = notification?.title ??
+        (data['title']?.toString().trim().isNotEmpty == true
+            ? data['title'].toString().trim()
+            : (data['sender_username']?.toString().trim().isNotEmpty == true
+                ? data['sender_username'].toString().trim()
+                : 'Innovator'));
+    final body = notification?.body ??
+        (data['body']?.toString().trim().isNotEmpty == true
+            ? data['body'].toString().trim()
+            : (data['message']?.toString().trim().isNotEmpty == true
+                ? data['message'].toString().trim()
+                : 'You have a new notification'));
+
+    debugPrint('[Push] showing local notification — title="$title" body="$body"');
+    try {
+      await _local.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: 'Likes, comments, follows and messages',
+            importance: Importance.max,
+            priority: Priority.high,
+            // Bare resource name — flutter_local_notifications resolves this
+            // against res/; the '@mipmap/' prefix makes show() fail silently.
+            icon: 'ic_launcher',
+            ticker: title,
+            visibility: NotificationVisibility.public,
+            styleInformation: BigTextStyleInformation(body, contentTitle: title),
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      payload: jsonEncode(message.data),
-    );
+        payload: jsonEncode(data),
+      );
+      debugPrint('[Push] _local.show() completed');
+    } catch (e, st) {
+      debugPrint('[Push] _local.show() FAILED: $e\n$st');
+    }
   }
 
   /// Central deep-link router. Reads type + related_post_id from the FCM data

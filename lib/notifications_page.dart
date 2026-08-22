@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import 'models/api_response.dart';
 import 'package:innovator/innovator/data/models/feed_models.dart';
 import 'package:innovator/innovator/data/sources/feed_api.dart';
+import 'services/avatar_colors.dart';
 import 'theme/brand_colors.dart';
+import 'widgets/cached_feed_image.dart';
 import 'widgets/fast_glass.dart';
 import 'widgets/news_feed_section.dart';
 
@@ -52,6 +54,8 @@ class _AppNotification {
     required this.time,
     required this.unread,
     this.relatedPostId,
+    this.senderAvatar,
+    this.senderName,
   });
 
   final String id;
@@ -63,16 +67,19 @@ class _AppNotification {
 
   final String? relatedPostId;
 
+  /// Real sender info from the backend (for the avatar + a stable letter color).
+  final String? senderAvatar;
+  final String? senderName;
+
   factory _AppNotification.fromApi(FeedNotification n) {
+    final sender = n.senderUsername?.trim();
+    final hasSender = sender != null && sender.isNotEmpty;
     return _AppNotification(
       id: n.id,
       kind: _kindFromType(n.type),
-      title:
-          (n.senderUsername?.trim().isNotEmpty == true)
-              ? n.senderUsername!.trim()
-              : (n.title?.trim().isNotEmpty == true
-                  ? n.title!.trim()
-                  : 'Innovator'),
+      title: hasSender
+          ? sender
+          : (n.title?.trim().isNotEmpty == true ? n.title!.trim() : 'Someone'),
       body:
           n.message?.trim().isNotEmpty == true
               ? n.message!.trim()
@@ -80,6 +87,8 @@ class _AppNotification {
       time: formatFeedTime(n.createdAt),
       unread: !n.isRead,
       relatedPostId: n.relatedPostId,
+      senderAvatar: n.senderAvatar,
+      senderName: hasSender ? sender : null,
     );
   }
 
@@ -111,12 +120,16 @@ class NotificationsSection extends StatefulWidget {
     super.key,
     this.contentPadding = EdgeInsets.zero,
     this.onOpen,
+    this.onReadChanged,
   });
 
   final EdgeInsets contentPadding;
 
   /// Opens the related product area (feed, chat, shop, etc.).
   final ValueChanged<NotificationDestination>? onOpen;
+
+  /// Called after notifications are marked read, so the drawer badge refreshes.
+  final VoidCallback? onReadChanged;
 
   @override
   State<NotificationsSection> createState() => _NotificationsSectionState();
@@ -207,6 +220,7 @@ class _NotificationsSectionState extends State<NotificationsSection> {
         n.unread = false;
       }
     });
+    widget.onReadChanged?.call();
   }
 
   void _open(_AppNotification item) {
@@ -214,6 +228,7 @@ class _NotificationsSectionState extends State<NotificationsSection> {
     if (item.unread) {
       setState(() => item.unread = false);
       unawaited(_markRead(item.id));
+      widget.onReadChanged?.call();
     }
 
     // Like / comment notifications open the specific post they refer to.
@@ -467,7 +482,11 @@ class _NotificationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _IconOrb(icon: item.icon),
+            _SenderOrb(
+              avatarUrl: item.senderAvatar,
+              name: item.senderName ?? item.title,
+              typeIcon: item.icon,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -553,6 +572,92 @@ class _IconOrb extends StatelessWidget {
         border: Border.all(color: _ink.withValues(alpha: .08)),
       ),
       child: Icon(icon, size: 20, color: _ink.withValues(alpha: .72)),
+    );
+  }
+}
+
+/// Notification avatar: the sender's photo when available, otherwise a colored
+/// letter avatar (stable per sender), with a small type-icon badge.
+class _SenderOrb extends StatelessWidget {
+  const _SenderOrb({
+    required this.avatarUrl,
+    required this.name,
+    required this.typeIcon,
+  });
+
+  final String? avatarUrl;
+  final String name;
+  final IconData typeIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = avatarUrl?.trim();
+    final gradient = AvatarColors.gradientFor(name);
+    final letterFallback = DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          AvatarColors.letterFor(name),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            clipBehavior: Clip.antiAlias,
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            child: (url != null && url.isNotEmpty)
+                ? CachedFeedImage(
+                    url: url,
+                    fit: BoxFit.cover,
+                    width: 42,
+                    height: 42,
+                    memCacheWidth: 96,
+                    errorWidget: letterFallback,
+                  )
+                : letterFallback,
+          ),
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: BrandColors.secondarySurface,
+                ),
+                child: Icon(typeIcon, size: 10, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -453,7 +453,7 @@ class FeedNotification {
       type: json['type'] as String?,
       senderId: json['sender_id']?.toString(),
       senderUsername: json['sender_username'] as String?,
-      senderAvatar: json['sender_avatar'] as String?,
+      senderAvatar: _resolveAvatar(json['sender_avatar'] as String?),
       relatedPostId: json['related_post_id']?.toString(),
       isRead: json['is_read'] == true || json['read'] == true,
       createdAt:

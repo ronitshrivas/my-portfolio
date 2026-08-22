@@ -9,9 +9,12 @@ import 'package:image_picker/image_picker.dart';
 import 'models/api_response.dart';
 import 'package:innovator/core/config/api_config.dart';
 import 'package:innovator/innovator/data/models/chat_models.dart';
+import 'services/chat_socket.dart';
 import 'services/auth_session.dart';
 import 'package:innovator/innovator/data/sources/chat_api.dart';
 import 'theme/brand_colors.dart';
+import 'package:innovator/innovator/data/models/profile_models.dart';
+import 'package:innovator/innovator/data/sources/profile_api.dart';
 import 'widgets/cached_feed_image.dart';
 import 'widgets/liquid_pressable.dart';
 import 'widgets/wave_fill_painter.dart';
@@ -106,12 +109,23 @@ class _Conversation {
   }
 }
 
-/// Chat peers' avatars live on the profile service (8011); prefix relatives.
+/// Chat peers' avatars live on the profile service (8011). Prefix relative
+/// paths and rewrite wrong-host / wrong-port absolute URLs so they resolve.
 String? _resolveChatAvatar(String? path) {
   final raw = path?.trim();
   if (raw == null || raw.isEmpty) return null;
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-  return '${ApiConfig.profileBaseUrl}${raw.startsWith('/') ? '' : '/'}$raw';
+  const host = ApiConfig.profileBaseUrl; // http://36.253.137.34:8011
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    final uri = Uri.tryParse(raw);
+    if (uri != null &&
+        (uri.host == 'localhost' ||
+            (uri.host == '36.253.137.34' && uri.port != 8011))) {
+      final tail = uri.path.startsWith('/') ? uri.path : '/${uri.path}';
+      return '$host$tail';
+    }
+    return raw;
+  }
+  return '$host${raw.startsWith('/') ? '' : '/'}$raw';
 }
 
 enum _AutoDelete { never, hours24 }
@@ -194,6 +208,7 @@ class _ChatSectionState extends State<ChatSection>
   String _listQuery = '';
 
   final _chatApi = ChatApi();
+  final _profileApi = ProfileApi();
   final List<_Conversation> _conversations = [];
   final Map<String, List<_Msg>> _messages = {};
 
@@ -229,9 +244,115 @@ class _ChatSectionState extends State<ChatSection>
   )..repeat();
 
   @override
+  StreamSubscription<Map<String, dynamic>>? _socketSub;
+  StreamSubscription<Map<String, dynamic>>? _readSub;
+
   void initState() {
     super.initState();
     _loadConversations();
+    // Realtime: connect the chat socket and append incoming messages live.
+    ChatSocket.instance.connect();
+    _socketSub = ChatSocket.instance.messages.listen(_onSocketMessage);
+    _readSub = ChatSocket.instance.reads.listen(_onSocketRead);
+  }
+
+  /// The other participant read the conversation — flip my sent messages to
+  /// "read" so the ticks turn blue instantly.
+  void _onSocketRead(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final convId = (data['conversation_id'] ?? '').toString();
+    final readerId = (data['reader_id'] ?? '').toString();
+    if (convId.isEmpty) return;
+    // Ignore my own read events; only the peer reading my messages matters.
+    if (readerId == AuthSession.instance.userId) return;
+    final list = _messages[convId];
+    if (list == null || list.isEmpty) return;
+    setState(() {
+      for (final m in list) {
+        if (m.mine) m.isRead = true;
+      }
+    });
+  }
+
+  /// A message arrived over the socket. Append it to its conversation (unless
+  /// it's my own echo already shown), and refresh the list preview.
+  /// Converts a possibly PascalCase map (from the WebSocket DTO) into the
+  /// snake_case keys the REST models parse. Passes snake_case through unchanged.
+  Map<String, dynamic> _normalizeChatKeys(Map<String, dynamic> input) {
+    String toSnake(String key) {
+      if (!key.contains(RegExp('[A-Z]'))) return key; // already snake/lower
+      final buffer = StringBuffer();
+      for (var i = 0; i < key.length; i++) {
+        final ch = key[i];
+        if (ch.toUpperCase() == ch && ch.toLowerCase() != ch) {
+          if (i > 0) buffer.write('_');
+          buffer.write(ch.toLowerCase());
+        } else {
+          buffer.write(ch);
+        }
+      }
+      return buffer.toString();
+    }
+
+    final out = <String, dynamic>{};
+    input.forEach((key, value) {
+      final normalized = toSnake(key);
+      if (value is Map<String, dynamic>) {
+        out[normalized] = _normalizeChatKeys(value);
+      } else {
+        out[normalized] = value;
+      }
+    });
+    return out;
+  }
+
+  void _onSocketMessage(Map<String, dynamic> data) {
+    if (!mounted) return;
+    try {
+      // The WebSocket DTO arrives PascalCase (Id, ConversationId, Content…),
+      // but ChatMessage.fromJson expects snake_case like the REST API. Normalize
+      // so realtime frames parse into real fields instead of empty ones.
+      final incoming = ChatMessage.fromJson(_normalizeChatKeys(data));
+      final convId = incoming.conversationId;
+      if (convId.isEmpty) return;
+      final me = AuthSession.instance.userId;
+      // My own sends are already shown optimistically; skip echoes.
+      if (incoming.senderId == me) return;
+
+      final list = _messages.putIfAbsent(convId, () => <_Msg>[]);
+      if (list.any((m) => m.id == incoming.id)) return; // dedupe
+      setState(() {
+        list.add(_Msg.fromApi(incoming));
+        // Bump the conversation preview/time in the list.
+        final idx = _conversations.indexWhere((c) => c.id == convId);
+        if (idx >= 0) {
+          final c = _conversations[idx];
+          _conversations[idx] = _Conversation(
+            id: c.id,
+            name: c.name,
+            role: c.role,
+            preview: incoming.content?.trim().isNotEmpty == true
+                ? incoming.content!.trim()
+                : 'Sent a photo',
+            time: 'now',
+            colors: c.colors,
+            peerUserId: c.peerUserId,
+            avatarUrl: c.avatarUrl,
+            unread: _open?.id == convId ? 0 : c.unread + 1,
+          );
+        }
+      });
+      // If this conversation is open, mark it read on the server.
+      if (_open?.id == convId) {
+        unawaited(() async {
+          try {
+            await _chatApi.markRead(convId);
+          } catch (_) {}
+        }());
+      }
+    } catch (_) {
+      // Ignore malformed socket payloads.
+    }
   }
 
   Future<void> _loadConversations() async {
@@ -273,6 +394,8 @@ class _ChatSectionState extends State<ChatSection>
 
   @override
   void dispose() {
+    _socketSub?.cancel();
+    _readSub?.cancel();
     for (final timer in _autoDeleteTimers.values) {
       timer.cancel();
     }
@@ -458,9 +581,14 @@ class _ChatSectionState extends State<ChatSection>
         } catch (_) {}
       }());
       if (!mounted || _open?.id != conversation.id) return;
+      // The API returns newest-first (paginated). Reverse to chronological
+      // order (oldest → newest) so the thread reads top-to-bottom and new
+      // messages land at the bottom.
       final mapped = remote
           .where((m) => !m.isDeleted)
           .map(_Msg.fromApi)
+          .toList()
+          .reversed
           .toList();
       setState(() {
         _messages[conversation.id] = mapped;
@@ -722,7 +850,7 @@ class _ChatSectionState extends State<ChatSection>
                   ),
                 ),
                 LiquidPressable(
-                  onTap: _showNewChatSheet,
+                  onTap: _showNewFriendsSheet,
                   borderRadius: BorderRadius.circular(999),
                   rippleColor: _ink,
                   intensity: .7,
@@ -733,13 +861,21 @@ class _ChatSectionState extends State<ChatSection>
                       borderRadius: BorderRadius.circular(999),
                       color: BrandColors.secondarySurface.withValues(alpha: .92),
                     ),
-                    child: const Text(
-                      'New chat',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.person_add_alt_1_rounded,
+                            size: 14, color: Colors.white),
+                        SizedBox(width: 5),
+                        Text(
+                          'New friends',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -780,7 +916,7 @@ class _ChatSectionState extends State<ChatSection>
                 child: Center(
                   child: Text(
                     _listQuery.isEmpty
-                        ? 'No conversations yet.\nTap New chat to start.'
+                        ? 'No conversations yet.\nTap New friends to start.'
                         : 'No chats for “$_listQuery”',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 13, color: _muted),
@@ -828,7 +964,56 @@ class _ChatSectionState extends State<ChatSection>
     );
   }
 
-  Future<void> _showNewChatSheet() async {
+  /// Opens (or reuses) a chat with the given user, then shows the thread.
+  Future<void> _startChatWith({
+    required String userId,
+    String? username,
+    String? avatar,
+  }) async {
+    if (userId.isEmpty) return;
+    try {
+      final conv = await _chatApi.createConversation(
+        participantUserId: userId,
+        participantUsername: username,
+        participantAvatar: avatar,
+      );
+      if (!mounted) return;
+      final local = _Conversation.fromApi(conv);
+      setState(() {
+        _conversations.removeWhere((c) => c.id == local.id);
+        _conversations.insert(0, local);
+        _messages.putIfAbsent(local.id, () => []);
+      });
+      await _openConversation(local);
+    } on ApiException catch (e) {
+      if (mounted) _liquidToast(e.message);
+    } catch (_) {
+      if (mounted) _liquidToast('Could not start chat');
+    }
+  }
+
+  /// "New friends": shows the user's followers so they can start a chat.
+  Future<void> _showNewFriendsSheet() async {
+    HapticFeedback.selectionClick();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _NewFriendsSheet(
+        profileApi: _profileApi,
+        onPick: (user) {
+          Navigator.pop(ctx);
+          _startChatWith(
+            userId: user.id,
+            username: user.username,
+            avatar: user.avatar,
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _legacyNewChatSheet() async {
     HapticFeedback.selectionClick();
     final usernameCtrl = TextEditingController();
     final userIdCtrl = TextEditingController();
@@ -2829,6 +3014,281 @@ class _PopoverTile extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// "New friends" picker — lists the signed-in user's followers so they can
+/// start a chat. Tapping a person opens/creates a conversation with them.
+class _NewFriendsSheet extends StatefulWidget {
+  const _NewFriendsSheet({required this.profileApi, required this.onPick});
+
+  final ProfileApi profileApi;
+  final ValueChanged<ProfileListUser> onPick;
+
+  @override
+  State<_NewFriendsSheet> createState() => _NewFriendsSheetState();
+}
+
+class _NewFriendsSheetState extends State<_NewFriendsSheet> {
+  List<ProfileListUser> _people = const [];
+  bool _loading = true;
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await widget.profileApi.followers();
+      if (!mounted) return;
+      setState(() {
+        _people = list;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<ProfileListUser> get _filtered {
+    if (_query.isEmpty) return _people;
+    final q = _query.toLowerCase();
+    return _people
+        .where((u) =>
+            u.displayName.toLowerCase().contains(q) ||
+            (u.username ?? '').toLowerCase().contains(q))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxH = MediaQuery.sizeOf(context).height * .7;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxH),
+          child: Material(
+            color: Colors.white.withValues(alpha: .96),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 42,
+                    height: 4.5,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: _ink.withValues(alpha: .18),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 16, 22, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'New friends',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: _ink,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) =>
+                          setState(() => _query = value.trim()),
+                      textInputAction: TextInputAction.search,
+                      style: const TextStyle(fontSize: 15, color: _ink),
+                      decoration: InputDecoration(
+                        hintText: 'Search friends…',
+                        hintStyle:
+                            TextStyle(color: _ink.withValues(alpha: .4)),
+                        prefixIcon:
+                            Icon(Icons.search, color: _ink.withValues(alpha: .5)),
+                        suffixIcon: _query.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: Icon(Icons.close,
+                                    color: _ink.withValues(alpha: .5)),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _query = '');
+                                },
+                              ),
+                        isDense: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        filled: true,
+                        fillColor: _ink.withValues(alpha: .05),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: _loading
+                        ? const Padding(
+                            padding: EdgeInsets.all(36),
+                            child: Center(
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2.4),
+                            ),
+                          )
+                        : _filtered.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.all(28),
+                                child: Text(
+                                  _query.isEmpty
+                                      ? 'No followers yet.'
+                                      : 'No friends match “$_query”.',
+                                  style: TextStyle(
+                                    color: _ink.withValues(alpha: .5),
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                                itemCount: _filtered.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 4),
+                                itemBuilder: (context, i) {
+                                  final user = _filtered[i];
+                                  return _FriendRow(
+                                    user: user,
+                                    onTap: () => widget.onPick(user),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendRow extends StatelessWidget {
+  const _FriendRow({required this.user, required this.onTap});
+
+  final ProfileListUser user;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final letter =
+        user.displayName.isEmpty ? '?' : user.displayName[0].toUpperCase();
+    final colors = _colorsFor(user.id.isNotEmpty ? user.id : user.displayName);
+    final avatar = user.avatar?.trim();
+    return LiquidPressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      rippleColor: _ink,
+      intensity: .6,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              clipBehavior: Clip.antiAlias,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: colors,
+                ),
+              ),
+              child: (avatar != null && avatar.isNotEmpty)
+                  ? CachedFeedImage(
+                      url: avatar,
+                      fit: BoxFit.cover,
+                      width: 44,
+                      height: 44,
+                      memCacheWidth: 100,
+                      errorWidget: Text(
+                        letter,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      letter,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                    ),
+                  ),
+                  if ((user.username ?? '').isNotEmpty)
+                    Text(
+                      '@${user.username}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _ink.withValues(alpha: .5),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 20,
+              color: _ink.withValues(alpha: .5),
+            ),
+          ],
         ),
       ),
     );

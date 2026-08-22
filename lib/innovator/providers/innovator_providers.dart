@@ -209,6 +209,55 @@ final notificationsProvider = FutureProvider<List<FeedNotification>>((ref) {
   return ref.watch(feedApiProvider).notifications();
 });
 
+/// Count of unread notifications, derived from [notificationsProvider]. Drives
+/// the badge on the drawer's Notification entry. Refresh by invalidating
+/// [notificationsProvider] after marking notifications read.
+final notificationUnreadCountProvider = Provider<int>((ref) {
+  final async = ref.watch(notificationsProvider);
+  return async.maybeWhen(
+    data: (list) => list.where((n) => !n.isRead).length,
+    orElse: () => 0,
+  );
+});
+
+/// ── Chat unread ───────────────────────────────────────────────────────────
+
+/// Total unread messages across all conversations. Seeded from the API and
+/// kept live by the chat UI (bump on incoming socket message, clear on open).
+/// Drives the badge on the bottom nav's Chat icon.
+class ChatUnreadNotifier extends StateNotifier<int> {
+  ChatUnreadNotifier(this._chatApi) : super(0) {
+    refresh();
+  }
+
+  final ChatApi _chatApi;
+
+  Future<void> refresh() async {
+    try {
+      final convos = await _chatApi.listConversations();
+      state = convos.fold<int>(0, (sum, c) => sum + c.unreadCount);
+    } catch (_) {
+      // Leave the last known count on failure.
+    }
+  }
+
+  /// A new incoming message for a conversation the user isn't viewing.
+  void increment([int by = 1]) => state = state + by;
+
+  /// The user opened a conversation with [conversationUnread] unread messages.
+  void clearFor(int conversationUnread) {
+    final next = state - conversationUnread;
+    state = next < 0 ? 0 : next;
+  }
+
+  void reset() => state = 0;
+}
+
+final chatUnreadCountProvider =
+    StateNotifierProvider<ChatUnreadNotifier, int>((ref) {
+  return ChatUnreadNotifier(ref.watch(chatApiProvider));
+});
+
 /// ── Search ────────────────────────────────────────────────────────────────
 
 final userSearchProvider = FutureProvider.family<List<SearchUserHit>, String>((
@@ -286,4 +335,131 @@ class SuggestedPeopleNotifier
 final suggestedPeopleProvider = StateNotifierProvider<SuggestedPeopleNotifier,
     AsyncValue<List<SuggestedUser>>>((ref) {
   return SuggestedPeopleNotifier(ref.watch(profileApiProvider));
+});
+
+/// ── Find friends ──────────────────────────────────────────────────────────
+
+/// Immutable view-state for the Find Friends screen: the loaded people, the
+/// active search query, and loading / paging flags.
+class FindFriendsState {
+  const FindFriendsState({
+    this.people = const [],
+    this.query = '',
+    this.loading = true,
+    this.loadingMore = false,
+    this.hasMore = false,
+    this.error,
+  });
+
+  final List<FindFriend> people;
+  final String query;
+  final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+  final String? error;
+
+  FindFriendsState copyWith({
+    List<FindFriend>? people,
+    String? query,
+    bool? loading,
+    bool? loadingMore,
+    bool? hasMore,
+    String? error,
+    bool clearError = false,
+  }) {
+    return FindFriendsState(
+      people: people ?? this.people,
+      query: query ?? this.query,
+      loading: loading ?? this.loading,
+      loadingMore: loadingMore ?? this.loadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+class FindFriendsNotifier extends StateNotifier<FindFriendsState> {
+  FindFriendsNotifier(this._api) : super(const FindFriendsState()) {
+    refresh();
+  }
+
+  final ProfileApi _api;
+  int _page = 1;
+  int _searchToken = 0;
+
+  /// Loads the first page for the current query (fresh).
+  Future<void> refresh() async {
+    _page = 1;
+    final token = ++_searchToken;
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final result = await _api.findFriends(query: state.query, page: 1);
+      if (token != _searchToken) return; // superseded by a newer search
+      state = state.copyWith(
+        people: result.people,
+        loading: false,
+        hasMore: result.hasMore,
+      );
+    } catch (_) {
+      if (token != _searchToken) return;
+      state = state.copyWith(loading: false, error: 'Could not load people');
+    }
+  }
+
+  /// Debounced-ish search: sets the query and reloads from page 1.
+  Future<void> search(String query) async {
+    if (query == state.query) return;
+    state = state.copyWith(query: query);
+    await refresh();
+  }
+
+  /// Appends the next page when the user scrolls near the end.
+  Future<void> loadMore() async {
+    if (state.loadingMore || !state.hasMore || state.loading) return;
+    final token = _searchToken;
+    state = state.copyWith(loadingMore: true);
+    try {
+      final next = _page + 1;
+      final result = await _api.findFriends(query: state.query, page: next);
+      if (token != _searchToken) return;
+      _page = next;
+      state = state.copyWith(
+        people: [...state.people, ...result.people],
+        loadingMore: false,
+        hasMore: result.hasMore,
+      );
+    } catch (_) {
+      if (token != _searchToken) return;
+      state = state.copyWith(loadingMore: false);
+    }
+  }
+
+  /// Optimistically toggles follow for [id]; reverts on failure.
+  Future<void> toggleFollow(String id) async {
+    final idx = state.people.indexWhere((p) => p.id == id);
+    if (idx < 0) return;
+    final was = state.people[idx].followStatus;
+    final optimistic = was == 'accepted' ? 'none' : 'accepted';
+    _setStatus(id, optimistic);
+    try {
+      final result = await _api.toggleFollow(id);
+      _setStatus(id, result.status);
+    } catch (_) {
+      _setStatus(id, was);
+    }
+  }
+
+  void _setStatus(String id, String status) {
+    state = state.copyWith(
+      people: [
+        for (final p in state.people)
+          if (p.id == id) p.copyWith(followStatus: status) else p,
+      ],
+    );
+  }
+}
+
+final findFriendsProvider =
+    StateNotifierProvider<FindFriendsNotifier, FindFriendsState>((ref) {
+  return FindFriendsNotifier(ref.watch(profileApiProvider));
 });

@@ -422,3 +422,94 @@ class UpdateProfileRequest {
         'links': links?.map((l) => l.toJson()).toList(),
       };
 }
+
+/// A person in the "Find friends" directory. [headline] is the user's
+/// occupation, or their education when no occupation is set.
+class FindFriend {
+  const FindFriend({
+    required this.id,
+    required this.username,
+    required this.fullName,
+    this.avatar,
+    this.headline,
+    this.followStatus = 'none',
+  });
+
+  /// Auth user id — used for follow / opening the profile.
+  final String id;
+  final String username;
+  final String fullName;
+  final String? avatar;
+  final String? headline;
+
+  /// none | pending | accepted.
+  final String followStatus;
+
+  bool get isFollowing => followStatus == 'accepted';
+  bool get isPending => followStatus == 'pending';
+
+  String get displayName {
+    final full = fullName.trim();
+    if (full.isNotEmpty) return full;
+    return username.trim().isNotEmpty ? '@${username.trim()}' : 'User';
+  }
+
+  FindFriend copyWith({String? followStatus}) => FindFriend(
+        id: id,
+        username: username,
+        fullName: fullName,
+        avatar: avatar,
+        headline: headline,
+        followStatus: followStatus ?? this.followStatus,
+      );
+
+  factory FindFriend.fromJson(Map<String, dynamic> json) {
+    final rawStatus = (json['follow_status'] as String?)?.trim();
+    final isFollowed = json['is_followed'] == true;
+    return FindFriend(
+      id: (json['id'] ?? '').toString(),
+      username: (json['username'] ?? '').toString(),
+      fullName: (json['full_name'] ?? '').toString(),
+      avatar: (json['avatar'] as String?)?.trim().isNotEmpty == true
+          ? (json['avatar'] as String).trim()
+          : null,
+      headline: (json['headline'] as String?)?.trim().isNotEmpty == true
+          ? (json['headline'] as String).trim()
+          : null,
+      followStatus: (rawStatus == null || rawStatus.isEmpty)
+          ? (isFollowed ? 'accepted' : 'none')
+          : rawStatus,
+    );
+  }
+}
+
+/// One page of [FindFriend]s plus whether more pages remain.
+class FindFriendsPage {
+  const FindFriendsPage({
+    required this.people,
+    required this.page,
+    required this.pageSize,
+    required this.hasMore,
+  });
+
+  final List<FindFriend> people;
+  final int page;
+  final int pageSize;
+  final bool hasMore;
+
+  factory FindFriendsPage.fromJson(Map<String, dynamic> json) {
+    final rawPeople = json['people'];
+    final people = rawPeople is List
+        ? rawPeople
+            .whereType<Map>()
+            .map((e) => FindFriend.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : <FindFriend>[];
+    return FindFriendsPage(
+      people: people,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      pageSize: (json['page_size'] as num?)?.toInt() ?? people.length,
+      hasMore: json['has_more'] == true,
+    );
+  }
+}

@@ -276,6 +276,33 @@ class ProfileApi {
     return envelope.data ?? const [];
   }
 
+  /// "Find friends": a paginated, searchable people directory to connect with.
+  Future<FindFriendsPage> findFriends({
+    String? query,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final envelope = await _client.get<FindFriendsPage>(
+      ApiConfig.profileBaseUrl,
+      '/api/users/find-friends',
+      query: {
+        if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
+        'page': '$page',
+        'pageSize': '$pageSize',
+      },
+      parse: (raw) => FindFriendsPage.fromJson(
+        Map<String, dynamic>.from(raw as Map? ?? const {}),
+      ),
+    );
+    return envelope.data ??
+        const FindFriendsPage(
+          people: [],
+          page: 1,
+          pageSize: 20,
+          hasMore: false,
+        );
+  }
+
   /// Dismisses a suggestion (hidden 30 days). Fire-and-forget; swallow errors.
   Future<void> dismissSuggestion(String id) async {
     try {

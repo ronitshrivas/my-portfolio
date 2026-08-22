@@ -11,8 +11,10 @@ import 'models/api_response.dart';
 import 'package:innovator/innovator/data/models/feed_models.dart';
 import 'package:innovator/innovator/data/models/profile_models.dart';
 import 'package:innovator/innovator/data/sources/auth_api.dart';
+import 'package:innovator/innovator/data/sources/chat_api.dart';
 import 'package:innovator/innovator/data/sources/feed_api.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
+import 'chat_page.dart';
 import 'services/auth_session.dart';
 import 'services/sound_player.dart';
 import 'theme/brand_colors.dart';
@@ -436,6 +438,7 @@ class ProfileSection extends StatefulWidget {
 class _ProfileSectionState extends State<ProfileSection>
     with TickerProviderStateMixin {
   final _profileApi = ProfileApi();
+  final _feedApi = FeedApi();
 
   int _titleIndex = 0;
   Uint8List? _avatarBytes;
@@ -455,7 +458,7 @@ class _ProfileSectionState extends State<ProfileSection>
   String? _error;
   int _collaborators = 0;
   int _collaborating = 0;
-  static const _innovationCount = 6;
+  int _innovationCount = 0;
   static const _avatarSize = 92.0;
   static const _coverHeight = 230.0;
 
@@ -524,6 +527,8 @@ class _ProfileSectionState extends State<ProfileSection>
             .read(currentUserProvider.notifier)
             .set(profile);
       }
+      // Real innovation (post) count from the dedicated endpoint.
+      unawaited(_loadInnovationCount(profile.authUserId));
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -740,6 +745,55 @@ class _ProfileSectionState extends State<ProfileSection>
     setState(() => _titleIndex = (_titleIndex + 1) % _titles.length);
   }
 
+  bool _messageBusy = false;
+
+  /// Creates/opens a chat with the viewed user, then opens the chat screen.
+  Future<void> _openChatWithUser() async {
+    final target = _profile?.authUserId;
+    if (target == null || target.isEmpty || _messageBusy) return;
+    setState(() => _messageBusy = true);
+    HapticFeedback.selectionClick();
+    try {
+      await ChatApi().createConversation(
+        participantUserId: target,
+        participantUsername: _profile?.username,
+        participantAvatar: _profile?.avatar,
+      );
+      if (!mounted) return;
+      setState(() => _messageBusy = false);
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(
+            body: SafeArea(child: ChatSection()),
+          ),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _messageBusy = false);
+        _toast(e.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _messageBusy = false);
+        _toast('Could not start chat');
+      }
+    }
+  }
+
+  Future<void> _loadInnovationCount(String authorId) async {
+    if (authorId.isEmpty) return;
+    try {
+      final count = await _feedApi.postsCountByAuthor(authorId);
+      if (!mounted) return;
+      // Only trust the endpoint when it returns a real value; a 0 (broken or
+      // empty endpoint) must not wipe the count derived from the loaded posts.
+      if (count > 0) setState(() => _innovationCount = count);
+    } catch (_) {
+      // Keep the current value on failure.
+    }
+  }
+
   Future<void> _toggleFollow() async {
     final target = _profile?.authUserId;
     if (target == null || target.isEmpty || _followBusy) return;
@@ -861,6 +915,14 @@ class _ProfileSectionState extends State<ProfileSection>
         _collaborators = saved.followersCount;
         _collaborating = saved.followingCount;
       });
+      // Push the saved profile into shared state so the drawer, feed author
+      // cards, composer and every other widget watching currentUserProvider
+      // update instantly — not just this page.
+      if (_isOwnProfile) {
+        ProviderScope.containerOf(context, listen: false)
+            .read(currentUserProvider.notifier)
+            .set(saved);
+      }
       _toast('Profile saved');
     } on ApiException catch (e) {
       if (mounted) _toast(e.message);
@@ -1008,6 +1070,47 @@ class _ProfileSectionState extends State<ProfileSection>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          // Message button — shown once you follow this person
+                          // (mutual/one-way follow enables chatting).
+                          if (_profile?.isFollowed ?? false) ...[
+                            LiquidPressable(
+                              onTap: _messageBusy ? () {} : _openChatWithUser,
+                              borderRadius: BorderRadius.circular(999),
+                              rippleColor: Colors.white,
+                              intensity: .8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: BrandColors.secondarySurface,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _messageBusy
+                                          ? Icons.hourglass_top_rounded
+                                          : Icons.chat_bubble_outline_rounded,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Message',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           LiquidPressable(
                             onTap: _followBusy ? () {} : _toggleFollow,
                             borderRadius: BorderRadius.circular(999),
@@ -1127,6 +1230,13 @@ class _ProfileSectionState extends State<ProfileSection>
                   authorId: _isOwnProfile
                       ? (targetAuthId ?? AuthSession.instance.userId)
                       : targetAuthId,
+                  onCount: (n) {
+                    // Frontend truth: the actual number of loaded posts. Use it
+                    // when the count endpoint returned 0 / hasn't answered.
+                    if (mounted && n != _innovationCount) {
+                      setState(() => _innovationCount = n);
+                    }
+                  },
                 ),
               ),
             ],
@@ -1275,15 +1385,16 @@ class _CoverHeader extends StatelessWidget {
                   Positioned(
                     top: topInset + 10,
                     right: 16,
-                    child: _GlassIconButton(
+                    child: 
+                    _GlassIconButton(
                       icon: Icons.photo_camera_outlined,
                       tooltip: 'Change cover',
                       onTap: onChangeCover!,
-                    ),
-                  ),
+                   ),
+                ),
               ],
             ),
-          ),
+          ), 
           Positioned(
             left: 0,
             right: 0,
@@ -3473,10 +3584,13 @@ class _PersonFollowButton extends StatelessWidget {
 /// (`/api/users/{authorId}/posts`). Falls back to an empty state when the
 /// member hasn't posted yet.
 class _InnovationsFeed extends StatefulWidget {
-  const _InnovationsFeed({required this.wave, this.authorId});
+  const _InnovationsFeed({required this.wave, this.authorId, this.onCount});
 
   final AnimationController wave;
   final String? authorId;
+
+  /// Reports the number of loaded posts so the profile can show the real count.
+  final ValueChanged<int>? onCount;
 
   @override
   State<_InnovationsFeed> createState() => _InnovationsFeedState();
@@ -3507,12 +3621,13 @@ class _InnovationsFeedState extends State<_InnovationsFeed> {
     }
     setState(() => _loading = true);
     try {
-      final page = await _feedApi.postsByAuthor(id, pageSize: 20);
+      final page = await _feedApi.postsByAuthor(id, pageSize: 50);
       if (!mounted) return;
       setState(() {
         _items = page.results;
         _loading = false;
       });
+      widget.onCount?.call(_items.length);
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

@@ -46,6 +46,23 @@ class FeedApi {
     return envelope.data ?? const FeedPage(results: []);
   }
 
+  /// Total number of posts by an author — the "Innovation" stat.
+  /// `GET /api/feed/users/{authorId}/posts/count` → { data: <int> }.
+  Future<int> postsCountByAuthor(String authorId) async {
+    final envelope = await _client.get<int>(
+      ApiConfig.feedBaseUrl,
+      '/api/feed/users/$authorId/posts/count',
+      parse: (raw) {
+        if (raw is num) return raw.toInt();
+        if (raw is Map && raw['count'] is num) {
+          return (raw['count'] as num).toInt();
+        }
+        return int.tryParse(raw?.toString() ?? '') ?? 0;
+      },
+    );
+    return envelope.data ?? 0;
+  }
+
   Future<FeedPage> postsByAuthor(
     String authorId, {
     int page = 1,
@@ -111,12 +128,13 @@ class FeedApi {
       formData.fields.add(MapEntry('categoryIds', id));
     }
     for (final m in media) {
+      final type = _mediaContentType(m.filename, m.bytes);
       formData.files.add(MapEntry(
         'media',
         MultipartFile.fromBytes(
           m.bytes,
-          filename: m.filename,
-          contentType: _mediaContentType(m.filename),
+          filename: _ensureExtension(m.filename, type),
+          contentType: type,
         ),
       ));
     }
@@ -463,7 +481,7 @@ class FeedApi {
   }
 }
 
-MediaType _mediaContentType(String filename) {
+MediaType _mediaContentType(String filename, [Uint8List? bytes]) {
   final name = filename.toLowerCase().split('?').first;
   if (name.endsWith('.mp4')) return MediaType('video', 'mp4');
   if (name.endsWith('.mov')) return MediaType('video', 'quicktime');
@@ -475,5 +493,68 @@ MediaType _mediaContentType(String filename) {
   if (name.endsWith('.jpg') || name.endsWith('.jpeg')) {
     return MediaType('image', 'jpeg');
   }
+  // Some OEM pickers (Vivo/FuntouchOS, Xiaomi/MIUI) hand back filenames with no
+  // usable extension. Sniff the leading bytes so the upload still gets a real
+  // image/video content-type instead of octet-stream (which the API rejects).
+  final sniffed = _sniffMediaType(bytes);
+  if (sniffed != null) return sniffed;
   return MediaType('application', 'octet-stream');
+}
+
+/// Detects common image/video types from magic-number byte signatures.
+MediaType? _sniffMediaType(Uint8List? bytes) {
+  if (bytes == null || bytes.length < 12) return null;
+  int b(int i) => bytes[i];
+  // JPEG: FF D8 FF
+  if (b(0) == 0xFF && b(1) == 0xD8 && b(2) == 0xFF) {
+    return MediaType('image', 'jpeg');
+  }
+  // PNG: 89 50 4E 47
+  if (b(0) == 0x89 && b(1) == 0x50 && b(2) == 0x4E && b(3) == 0x47) {
+    return MediaType('image', 'png');
+  }
+  // GIF: 47 49 46 38
+  if (b(0) == 0x47 && b(1) == 0x49 && b(2) == 0x46 && b(3) == 0x38) {
+    return MediaType('image', 'gif');
+  }
+  // WEBP: RIFF....WEBP
+  if (b(0) == 0x52 && b(1) == 0x49 && b(2) == 0x46 && b(3) == 0x46 &&
+      b(8) == 0x57 && b(9) == 0x45 && b(10) == 0x42 && b(11) == 0x50) {
+    return MediaType('image', 'webp');
+  }
+  // MP4 / MOV / M4V: bytes 4-7 spell "ftyp"
+  if (b(4) == 0x66 && b(5) == 0x74 && b(6) == 0x79 && b(7) == 0x70) {
+    return MediaType('video', 'mp4');
+  }
+  // WEBM / Matroska: 1A 45 DF A3
+  if (b(0) == 0x1A && b(1) == 0x45 && b(2) == 0xDF && b(3) == 0xA3) {
+    return MediaType('video', 'webm');
+  }
+  return null;
+}
+
+/// Ensures the upload filename carries an extension matching its content type,
+/// so servers that key off the extension accept OEM-picker files.
+String _ensureExtension(String filename, MediaType type) {
+  const knownExts = {
+    '.mp4', '.mov', '.webm', '.m4v',
+    '.png', '.gif', '.webp', '.jpg', '.jpeg',
+  };
+  final lower = filename.toLowerCase().split('?').first;
+  final hasKnownExt = knownExts.any(lower.endsWith);
+  if (hasKnownExt) return filename;
+  final ext = switch ('${type.type}/${type.subtype}') {
+    'image/jpeg' => '.jpg',
+    'image/png' => '.png',
+    'image/gif' => '.gif',
+    'image/webp' => '.webp',
+    'video/mp4' => '.mp4',
+    'video/quicktime' => '.mov',
+    'video/webm' => '.webm',
+    'video/x-m4v' => '.m4v',
+    _ => '',
+  };
+  if (ext.isEmpty) return filename;
+  final base = filename.trim().isEmpty ? 'upload' : filename;
+  return '$base$ext';
 }

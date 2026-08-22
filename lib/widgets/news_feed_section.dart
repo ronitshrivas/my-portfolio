@@ -19,6 +19,7 @@ import '../services/media_cache.dart';
 import '../services/pending_post.dart';
 import '../services/sound_player.dart';
 import '../services/view_reporter.dart';
+import 'video_thumbnail_view.dart';
 import 'package:innovator/innovator/data/sources/post_view_recorder.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
 import '../theme/brand_colors.dart';
@@ -3017,6 +3018,7 @@ class _PostingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final failed = pending.status == PendingPostStatus.failed;
     final preview = pending.previewBytes;
+    final videoPath = pending.videoPreviewPath;
     return FastGlass(
       borderRadius: BorderRadius.circular(26),
       blur: true,
@@ -3032,6 +3034,27 @@ class _PostingCard extends StatelessWidget {
                 height: 52,
                 fit: BoxFit.cover,
                 gaplessPlayback: true,
+              ),
+            )
+          else if (videoPath != null && videoPath.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 52,
+                height: 52,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    VideoThumbnailView(path: videoPath),
+                    const Center(
+                      child: Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
           else

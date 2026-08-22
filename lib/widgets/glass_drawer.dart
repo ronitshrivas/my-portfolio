@@ -10,11 +10,17 @@ import 'wave_fill_painter.dart';
 const _ink = BrandColors.ink;
 
 class GlassDrawerItem {
-  const GlassDrawerItem({required this.icon, required this.label, this.onTap});
+  const GlassDrawerItem({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.badgeCount = 0,
+  });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final int badgeCount;
 }
 
 class GlassDrawer extends StatelessWidget {
@@ -27,11 +33,13 @@ class GlassDrawer extends StatelessWidget {
     this.onShop,
     this.onELearning,
     this.onProfile,
+    this.onFindFriends,
     this.onNotifications,
     this.onPrivacy,
     this.onSettings,
     this.onFaq,
     this.onKmsChanged,
+    this.notificationBadge = 0,
   });
 
   final String name;
@@ -41,11 +49,13 @@ class GlassDrawer extends StatelessWidget {
   final VoidCallback? onShop;
   final VoidCallback? onELearning;
   final VoidCallback? onProfile;
+  final VoidCallback? onFindFriends;
   final VoidCallback? onNotifications;
   final VoidCallback? onPrivacy;
   final VoidCallback? onSettings;
   final VoidCallback? onFaq;
   final ValueChanged<bool>? onKmsChanged;
+  final int notificationBadge;
 
   /// Let the liquid wobble play before the drawer slides away.
   void _closeThen(BuildContext context, VoidCallback? action) {
@@ -64,9 +74,15 @@ class GlassDrawer extends StatelessWidget {
       onTap: onProfile,
     ),
     GlassDrawerItem(
+      icon: Icons.person_search_rounded,
+      label: 'Find friends',
+      onTap: onFindFriends,
+    ),
+    GlassDrawerItem(
       icon: Icons.notifications_none_rounded,
       label: 'Notification',
       onTap: onNotifications,
+      badgeCount: notificationBadge,
     ),
     GlassDrawerItem(
       icon: Icons.storefront_outlined,
@@ -157,6 +173,7 @@ class GlassDrawer extends StatelessWidget {
                                 icon: item.icon,
                                 label: item.label,
                                 onTap: () => _closeThen(context, item.onTap),
+                                badgeCount: item.badgeCount,
                               ),
                           ],
                         ),
@@ -540,12 +557,14 @@ class _DrawerTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.destructive = false,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool destructive;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -581,6 +600,24 @@ class _DrawerTile extends StatelessWidget {
                 ),
               ),
             ),
+            if (badgeCount > 0) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC0392B),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Text(
+                  '+${badgeCount > 99 ? 99 : badgeCount}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (!destructive)
               Icon(
                 Icons.chevron_right_rounded,

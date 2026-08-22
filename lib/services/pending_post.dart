@@ -8,6 +8,8 @@ class PendingPost {
     required this.content,
     required this.categoryIds,
     required this.media,
+    this.imagePreviewBytes,
+    this.videoPreviewPath,
     this.status = PendingPostStatus.uploading,
   });
 
@@ -15,10 +17,15 @@ class PendingPost {
   final List<String> categoryIds;
   final List<({Uint8List bytes, String filename})> media;
 
+  /// First IMAGE's bytes for the posting-card thumbnail (null if none).
+  final Uint8List? imagePreviewBytes;
+
+  /// First VIDEO's local path for a first-frame thumbnail (null if none).
+  final String? videoPreviewPath;
+
   PendingPostStatus status;
 
-  /// First image's bytes, for the posting-card thumbnail (null if text-only).
-  Uint8List? get previewBytes => media.isNotEmpty ? media.first.bytes : null;
+  Uint8List? get previewBytes => imagePreviewBytes;
 }
 
 enum PendingPostStatus { uploading, failed }

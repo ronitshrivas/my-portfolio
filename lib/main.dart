@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:innovator/firebase_options.dart';
 import 'core/cache/hive_cache.dart';
 import 'splash_page.dart';
@@ -12,12 +16,28 @@ import 'theme/brand_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Use Android's system Photo Picker (ACTION_PICK_IMAGES): permission-free,
+  // available on every Android 11+ device (backported via Play Services), and
+  // it never hands back unreadable gallery URIs — which is what breaks image
+  // selection on some Vivo / Xiaomi ROMs.
+  if (Platform.isAndroid) {
+    final android = ImagePickerPlatform.instance;
+    if (android is ImagePickerAndroid) {
+      android.useAndroidPhotoPicker = true;
+    }
+  }
   // Larger decoded-image cache so feed scroll stays smooth.
   PaintingBinding.instance.imageCache.maximumSize = 280;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await PushService.instance.initLocalNotifications();
+  // Ask for notification permission at launch, independent of login, so the
+  // system dialog always appears on first run (Android 13+ / targetSdk 36).
+  await PushService.instance.ensurePermissions();
+  // Attach the foreground listener at launch (independent of login) so a push
+  // arriving while the app is open ALWAYS renders a local heads-up notification.
+  PushService.instance.attachForegroundListener();
   await HiveCache.init();
   await AuthSession.instance.load();
   // If already signed in, register for push right away.

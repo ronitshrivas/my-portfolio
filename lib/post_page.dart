@@ -18,6 +18,7 @@ import 'services/auth_session.dart';
 import 'services/pending_post.dart';
 import 'package:innovator/innovator/data/sources/feed_api.dart';
 import 'widgets/cached_feed_image.dart';
+import 'widgets/video_thumbnail_view.dart';
 import 'widgets/liquid_button.dart';
 import 'widgets/liquid_pressable.dart';
 import 'widgets/wave_fill_painter.dart';
@@ -231,11 +232,16 @@ class _PostSectionState extends State<PostSection>
     if (_picking) return;
     _picking = true;
     try {
-      // Images go through image_picker: it copies the selection into the app
-      // cache and hands back a real readable path + bytes, which file_picker
-      // does not reliably do for gallery / WhatsApp content URIs.
+      // Images and videos go through image_picker: it copies the selection
+      // into the app cache and returns a real readable path + bytes for any
+      // format (jpg/png/heic/webp, mp4/mov/…), which file_picker does not
+      // reliably do for gallery / WhatsApp content URIs.
       if (kind == AttachmentKind.image) {
         await _pickImages();
+        return;
+      }
+      if (kind == AttachmentKind.video) {
+        await _pickVideo();
         return;
       }
       final result = await FilePicker.pickFiles(
@@ -292,7 +298,10 @@ class _PostSectionState extends State<PostSection>
       final files = await ImagePicker().pickMultiImage(imageQuality: 90);
       if (!mounted) return;
       if (files.isEmpty) {
-        // User cancelled, or the OS returned nothing (usually denied access).
+        // image_picker returned nothing (cancel, OR a device where it fails to
+        // hand back gallery items — Vivo/Xiaomi). Fall back to FilePicker, which
+        // reliably returns bytes on those devices.
+        await _pickViaFilePicker(AttachmentKind.image);
         return;
       }
       final picked = <PostAttachment>[];
@@ -323,16 +332,84 @@ class _PostSectionState extends State<PostSection>
       }
       if (!mounted) return;
       if (picked.every((a) => (a.bytes == null || a.bytes!.isEmpty))) {
-        _pickerMessage('Could not read the selected photo. Try another image.');
+        // image_picker gave items but their bytes were unreadable on this
+        // device — retry through FilePicker before giving up.
+        final ok = await _pickViaFilePicker(AttachmentKind.image);
+        if (!ok) {
+          _pickerMessage(
+            'Could not read the selected photo. Try another image.',
+          );
+        }
         return;
       }
       setState(() => _attachments.addAll(picked));
       _syncFill();
       HapticFeedback.lightImpact();
-    } on PlatformException catch (e) {
-      _pickerMessage('Photo picker error: ${e.message ?? e.code}');
+    } on PlatformException {
+      // image_picker failed at the platform level — fall back to FilePicker.
+      final ok = await _pickViaFilePicker(AttachmentKind.image);
+      if (!ok && mounted) {
+        _pickerMessage('Could not open the photo picker.');
+      }
     } catch (_) {
-      _pickerMessage('Could not open the photo picker.');
+      final ok = await _pickViaFilePicker(AttachmentKind.image);
+      if (!ok && mounted) {
+        _pickerMessage('Could not open the photo picker.');
+      }
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    try {
+      final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
+      if (file == null) {
+        // Cancelled, or the device didn't return the video — fall back.
+        if (mounted) await _pickViaFilePicker(AttachmentKind.video);
+        return;
+      }
+      if (!mounted) return;
+      Uint8List? bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {
+        bytes = null;
+      }
+      int length = bytes?.length ?? 0;
+      if (length == 0) {
+        try {
+          length = await File(file.path).length();
+        } catch (_) {
+          length = 0;
+        }
+      }
+      // Unreadable bytes on this device — retry through FilePicker.
+      if (bytes == null || bytes.isEmpty) {
+        final ok = await _pickViaFilePicker(AttachmentKind.video);
+        if (!ok && mounted) {
+          _pickerMessage('Could not read the selected video. Try another one.');
+        }
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _attachments.add(
+          PostAttachment(
+            kind: AttachmentKind.video,
+            name: file.name,
+            size: length,
+            path: file.path,
+            bytes: bytes,
+          ),
+        );
+      });
+      _syncFill();
+      HapticFeedback.lightImpact();
+    } on PlatformException {
+      final ok = await _pickViaFilePicker(AttachmentKind.video);
+      if (!ok && mounted) _pickerMessage('Could not open the video picker.');
+    } catch (_) {
+      final ok = await _pickViaFilePicker(AttachmentKind.video);
+      if (!ok && mounted) _pickerMessage('Could not open the video picker.');
     }
   }
 
@@ -359,6 +436,48 @@ class _PostSectionState extends State<PostSection>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)),
     );
+  }
+
+  /// Fallback picker via FilePicker (with bytes) for devices where image_picker
+  /// returns nothing usable (common on Vivo / Xiaomi). Returns true if it added
+  /// at least one attachment.
+  Future<bool> _pickViaFilePicker(AttachmentKind kind) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: kind == AttachmentKind.image,
+        withData: true,
+        type: kind == AttachmentKind.video ? FileType.video : FileType.image,
+      );
+      if (result == null || !mounted) return false;
+      final picked = <PostAttachment>[];
+      for (final file in result.files) {
+        Uint8List? bytes = file.bytes;
+        if (bytes == null && file.path != null) {
+          try {
+            bytes = await File(file.path!).readAsBytes();
+          } catch (_) {
+            bytes = null;
+          }
+        }
+        if (bytes == null || bytes.isEmpty) continue;
+        picked.add(
+          PostAttachment(
+            kind: _kindOf(file, kind),
+            name: file.name,
+            size: bytes.length,
+            path: file.path,
+            bytes: bytes,
+          ),
+        );
+      }
+      if (picked.isEmpty || !mounted) return false;
+      setState(() => _attachments.addAll(picked));
+      _syncFill();
+      HapticFeedback.lightImpact();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// "Any file" picks still get the right icon/preview based on extension.
@@ -427,6 +546,14 @@ class _PostSectionState extends State<PostSection>
       // Instagram-style: hand the composed post to the shell, which uploads it
       // in the background, and return to the feed immediately. The feed shows a
       // "posting…" card; the user can keep using the app meanwhile.
+      // Pick a thumbnail source for the "posting…" card: first image's bytes,
+      // or first video's path (rendered as a first-frame thumbnail).
+      final firstImage = _attachments.where((a) =>
+          a.kind == AttachmentKind.image && (a.bytes?.isNotEmpty ?? false));
+      final firstVideo = _attachments.where((a) =>
+          a.kind == AttachmentKind.video &&
+          (a.path?.isNotEmpty ?? false));
+
       final handoff = widget.onSubmitPending;
       if (handoff != null) {
         handoff(
@@ -434,6 +561,10 @@ class _PostSectionState extends State<PostSection>
             content: content,
             categoryIds: _selectedCategoryIds.toList(),
             media: media,
+            imagePreviewBytes:
+                firstImage.isNotEmpty ? firstImage.first.bytes : null,
+            videoPreviewPath:
+                firstVideo.isNotEmpty ? firstVideo.first.path : null,
           ),
         );
         if (!mounted) return;
@@ -1274,7 +1405,8 @@ class _AttachmentPreview extends StatelessWidget {
         attachments
             .where(
               (a) =>
-                  a.kind == AttachmentKind.image &&
+                  (a.kind == AttachmentKind.image ||
+                      a.kind == AttachmentKind.video) &&
                   ((a.bytes != null && a.bytes!.isNotEmpty) ||
                       (a.path != null && a.path!.isNotEmpty)),
             )
@@ -1341,6 +1473,25 @@ class _ImageThumb extends StatelessWidget {
   /// Prefer in-memory bytes (reliable for gallery/WhatsApp content URIs where
   /// [PostAttachment.path] can be null or unreadable), then fall back to path.
   Widget _attachmentPreview(PostAttachment attachment) {
+    // Video: show the first-frame thumbnail with a play badge.
+    if (attachment.kind == AttachmentKind.video &&
+        attachment.path != null &&
+        attachment.path!.isNotEmpty) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          VideoThumbnailView(path: attachment.path!),
+          const Center(
+            child: Icon(
+              Icons.play_circle_fill_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+        ],
+      );
+    }
+
     final fallback = Container(
       color: Colors.white.withValues(alpha: .5),
       child: const Icon(Icons.image_rounded, color: _muted),

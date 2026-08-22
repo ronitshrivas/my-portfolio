@@ -93,6 +93,7 @@ class LiquidNavBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onLogoTap,
+    this.badges = const {},
   });
 
   final NavDock dock;
@@ -101,6 +102,9 @@ class LiquidNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onLogoTap;
+
+  /// Optional unread counts keyed by item label (e.g. {'Chat': 3}).
+  final Map<String, int> badges;
 
   List<LiquidNavItem> get _all => [...leading, ...trailing];
 
@@ -191,6 +195,7 @@ class LiquidNavBar extends StatelessWidget {
                         item: items[i],
                         selected: selectedIndex == i,
                         onTap: () => onSelect(i),
+                        badgeCount: badges[items[i].label] ?? 0,
                       ),
                     ),
                   // Logo: rides the notch at rest, sinks inline when a tab
@@ -263,6 +268,7 @@ class LiquidNavBar extends StatelessWidget {
                     item: item,
                     selected: selectedIndex == all.indexOf(item),
                     onTap: () => onSelect(all.indexOf(item)),
+                    badgeCount: badges[item.label] ?? 0,
                   ),
                   const SizedBox(height: 4),
                 ],
@@ -568,11 +574,13 @@ class _CurveNavIcon extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   final LiquidNavItem item;
   final bool selected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -583,7 +591,7 @@ class _CurveNavIcon extends StatelessWidget {
             ? Colors.white
             : _ink.withValues(alpha: .45);
 
-    return Tooltip(
+    final content = Tooltip(
       message: item.label,
       child: LiquidPressable(
         onTap: onTap,
@@ -629,6 +637,38 @@ class _CurveNavIcon extends StatelessWidget {
           child: Icon(item.icon, size: 20, color: color),
         ),
       ),
+    );
+
+    if (badgeCount <= 0) return content;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        content,
+        Positioned(
+          top: -1,
+          right: -1,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFC0392B),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            child: Text(
+              badgeCount > 99 ? '99+' : '$badgeCount',
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1.1,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
