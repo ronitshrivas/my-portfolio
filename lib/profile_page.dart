@@ -238,26 +238,42 @@ UpdateProfileRequest _toUpdateRequest(_LearnerInfo info) {
     if (info.zipCode.trim().isNotEmpty) 'ZIP ${info.zipCode.trim()}',
   ].where((e) => e.trim().isNotEmpty).join(' · ');
 
-  final education = [
-    info.educationLevel,
-    info.school,
-    info.faculty,
-    info.degree,
-    info.major,
-    info.yearLevel,
-  ].where((e) => e.trim().isNotEmpty).join(' · ');
+  // Multi-value lists come straight from the edit form's dynamic rows. These
+  // are the source of truth for education / occupation.
+  final educations = info.educations
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet() // de-dupe repeated entries
+      .toList();
+  final occupations = info.occupations
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet()
+      .toList();
 
-  final occupation = info.major.trim().isNotEmpty
-      ? info.major.trim()
-      : (info.learningGoals.trim().isNotEmpty
-            ? info.learningGoals.trim()
-            : info.degree.trim());
+  // Collapse the lists into the single legacy string (deduped, joined once).
+  // Fall back to the scalar form fields only when no list rows were entered.
+  final education = educations.isNotEmpty
+      ? educations.join(' · ')
+      : [
+          info.educationLevel,
+          info.school,
+          info.faculty,
+          info.degree,
+          info.yearLevel,
+        ]
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .join(' · ');
 
-  // Multi-value lists come straight from the edit form's dynamic rows,
-  // falling back to the collapsed single field when the list is empty.
-  final educations = info.educations.where((e) => e.trim().isNotEmpty).toList();
-  final occupations =
-      info.occupations.where((e) => e.trim().isNotEmpty).toList();
+  final occupation = occupations.isNotEmpty
+      ? occupations.first
+      : (info.major.trim().isNotEmpty
+          ? info.major.trim()
+          : (info.learningGoals.trim().isNotEmpty
+              ? info.learningGoals.trim()
+              : info.degree.trim()));
   final links = [
     ...info.links.where((l) => (l.url ?? '').trim().isNotEmpty),
     ..._linksFromInfo(info),
@@ -269,17 +285,20 @@ UpdateProfileRequest _toUpdateRequest(_LearnerInfo info) {
     dateOfBirth: info.dateOfBirth,
     phone: info.phone,
     gender: info.gender,
-    address: address.isEmpty ? null : address,
-    education: education.isEmpty ? null : education,
-    occupation: occupation.isEmpty ? null : occupation,
+    // Send an empty string (not null) for cleared fields so the backend
+    // actually clears them — null means "leave unchanged" on the server.
+    address: address,
+    education: education,
+    occupation: occupation,
     interests: interests,
+    // Always send the lists (even when empty) so clearing all rows persists.
     educations: educations.isNotEmpty
         ? educations
-        : (education.isEmpty ? null : [education]),
+        : (education.isEmpty ? <String>[] : [education]),
     occupations: occupations.isNotEmpty
         ? occupations
-        : (occupation.isEmpty ? null : [occupation]),
-    links: links.isEmpty ? null : links,
+        : (occupation.isEmpty ? <String>[] : [occupation]),
+    links: links,
   );
 }
 
@@ -412,7 +431,7 @@ class AuthorProfilePage extends StatelessWidget {
 
 /// Profile with cover banner, overlapping avatar, identity row, stats, and
 /// innovations feed.
-class ProfileSection extends StatefulWidget {
+class ProfileSection extends ConsumerStatefulWidget {
   const ProfileSection({
     super.key,
     required this.name,
@@ -432,10 +451,10 @@ class ProfileSection extends StatefulWidget {
   final VoidCallback? onBack;
 
   @override
-  State<ProfileSection> createState() => _ProfileSectionState();
+  ConsumerState<ProfileSection> createState() => _ProfileSectionState();
 }
 
-class _ProfileSectionState extends State<ProfileSection>
+class _ProfileSectionState extends ConsumerState<ProfileSection>
     with TickerProviderStateMixin {
   final _profileApi = ProfileApi();
   final _feedApi = FeedApi();
@@ -907,7 +926,11 @@ class _ProfileSectionState extends State<ProfileSection>
     if (updated == null || !mounted) return;
     setState(() => _info = updated);
     try {
-      final saved = await _profileApi.updateProfile(_toUpdateRequest(updated));
+      final request = _toUpdateRequest(updated);
+      debugPrint('[Profile] PUT /api/profile body=${request.toJson()}');
+      final saved = await _profileApi.updateProfile(request);
+      debugPrint('[Profile] server returned fullName="${saved.fullName}" '
+          'occupation="${saved.occupation}" bio="${saved.bio}"');
       if (!mounted) return;
       setState(() {
         _profile = saved;
@@ -915,6 +938,9 @@ class _ProfileSectionState extends State<ProfileSection>
         _collaborators = saved.followersCount;
         _collaborating = saved.followingCount;
       });
+      debugPrint('[Profile] after setState — _info.fullName="${_info.fullName}" '
+          '_info.major="${_info.major}" _info.bio="${_info.bio}" '
+          '_info.educationLevel="${_info.educationLevel}"');
       // Push the saved profile into shared state so the drawer, feed author
       // cards, composer and every other widget watching currentUserProvider
       // update instantly — not just this page.
@@ -936,9 +962,28 @@ class _ProfileSectionState extends State<ProfileSection>
     final padding = widget.contentPadding;
     final title = _titles[_titleIndex];
     final overlap = _avatarSize * .55;
-    final displayName = _info.displayName.isEmpty
-        ? widget.name
-        : _info.displayName;
+    // For the signed-in user's own profile, drive the header from shared
+    // current-user state so a profile edit reflects here instantly (and
+    // everywhere else that watches it). Other users' profiles use their loaded
+    // values only. Falls back to local _info until the provider hydrates.
+    final live = _isOwnProfile ? ref.watch(currentUserProvider) : null;
+
+    final liveName = live?.fullName;
+    final displayName = (liveName != null && liveName.trim().isNotEmpty)
+        ? liveName.trim()
+        : (_info.displayName.isEmpty ? widget.name : _info.displayName);
+
+    // Occupation / education / bio, reactive from shared state when available.
+    final headlineOccupation = (live?.occupation?.trim().isNotEmpty ?? false)
+        ? live!.occupation!.trim()
+        : _info.major;
+    final headlineEducation = (live?.education?.trim().isNotEmpty ?? false)
+        ? live!.education!.trim()
+        : _info.educationLevel;
+    final headlineBio = (live?.bio?.trim().isNotEmpty ?? false)
+        ? live!.bio!.trim()
+        : _info.bio;
+
     final targetAuthId = _profile?.authUserId;
 
     if (_loading) {
@@ -1028,21 +1073,26 @@ class _ProfileSectionState extends State<ProfileSection>
                       badge: title,
                       wave: _wave,
                       onTap: _cycleTitle,
+                      verified: _isOwnProfile
+                          ? (live?.isVerified ?? _profile?.isVerified ?? false)
+                          : (_profile?.isVerified ?? false),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       [
-                            if (_info.educationLevel.trim().isNotEmpty)
-                              _info.educationLevel,
+                            if (headlineEducation.trim().isNotEmpty)
+                              headlineEducation,
                             if (_info.school.trim().isNotEmpty) _info.school,
-                            if (_info.major.trim().isNotEmpty) _info.major,
+                            if (headlineOccupation.trim().isNotEmpty)
+                              headlineOccupation,
                           ].join(' · ').trim().isEmpty
                           ? 'Innovator member'
                           : [
-                              if (_info.educationLevel.trim().isNotEmpty)
-                                _info.educationLevel,
+                              if (headlineEducation.trim().isNotEmpty)
+                                headlineEducation,
                               if (_info.school.trim().isNotEmpty) _info.school,
-                              if (_info.major.trim().isNotEmpty) _info.major,
+                              if (headlineOccupation.trim().isNotEmpty)
+                                headlineOccupation,
                             ].join(' · '),
                       textAlign: TextAlign.center,
                       maxLines: 2,
@@ -1053,10 +1103,10 @@ class _ProfileSectionState extends State<ProfileSection>
                         color: _ink.withValues(alpha: .48),
                       ),
                     ),
-                    if (_info.bio.trim().isNotEmpty) ...[
+                    if (headlineBio.trim().isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text(
-                        _info.bio,
+                        headlineBio,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13.5,
@@ -2965,11 +3015,13 @@ class _TitleBadgeChip extends StatelessWidget {
     required this.badge,
     required this.wave,
     required this.onTap,
+    this.verified = false,
   });
 
   final _TitleBadge badge;
   final AnimationController wave;
   final VoidCallback onTap;
+  final bool verified;
 
   @override
   Widget build(BuildContext context) {
@@ -3020,12 +3072,14 @@ class _TitleBadgeChip extends StatelessWidget {
                           letterSpacing: .2,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.verified_rounded,
-                        size: 13,
-                        color: Colors.white.withValues(alpha: .9),
-                      ),
+                      if (verified) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.verified_rounded,
+                          size: 13,
+                          color: Colors.white.withValues(alpha: .9),
+                        ),
+                      ],
                     ],
                   ),
                 ],

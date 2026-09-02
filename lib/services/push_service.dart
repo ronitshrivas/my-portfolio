@@ -241,10 +241,24 @@ class PushService {
                 ? data['message'].toString().trim()
                 : 'You have a new notification'));
 
+    await showLocal(title: title, body: body, data: data);
+  }
+
+  /// Shows a heads-up local notification. Reused by the FCM foreground path and
+  /// the notification poller. [id] lets callers avoid duplicate notifications
+  /// (e.g. the same server notification id); defaults to a time-based id.
+  Future<void> showLocal({
+    required String title,
+    required String body,
+    Map<String, dynamic> data = const {},
+    int? id,
+  }) async {
+    await initLocalNotifications();
+    final notifId = id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
     debugPrint('[Push] showing local notification — title="$title" body="$body"');
     try {
       await _local.show(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        notifId,
         title,
         body,
         NotificationDetails(

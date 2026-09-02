@@ -1019,8 +1019,10 @@ class FeedCardState extends State<FeedCard> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        const _NameBadge(),
+                        if (post.isVerified) ...[
+                          const SizedBox(width: 4),
+                          const _NameBadge(),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 1),

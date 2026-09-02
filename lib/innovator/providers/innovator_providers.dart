@@ -463,3 +463,12 @@ final findFriendsProvider =
     StateNotifierProvider<FindFriendsNotifier, FindFriendsState>((ref) {
   return FindFriendsNotifier(ref.watch(profileApiProvider));
 });
+
+/// ── Verification ──────────────────────────────────────────────────────────
+
+/// The signed-in user's verification application status. Invalidate after
+/// submitting so the drawer entry and wizard reflect the new state.
+final verificationStatusProvider =
+    FutureProvider<VerificationStatus>((ref) {
+  return ref.watch(profileApiProvider).getVerificationStatus();
+});

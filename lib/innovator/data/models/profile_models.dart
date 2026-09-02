@@ -62,6 +62,7 @@ class UserProfile {
     this.followersCount = 0,
     this.followingCount = 0,
     this.isFollowed = false,
+    this.isVerified = false,
     this.createdAt,
   });
 
@@ -93,6 +94,9 @@ class UserProfile {
   final int followersCount;
   final int followingCount;
   final bool isFollowed;
+
+  /// Whether this user has an approved verification badge.
+  final bool isVerified;
   final DateTime? createdAt;
 
   /// All education entries, merging the singular field with the list.
@@ -127,6 +131,7 @@ class UserProfile {
     int? followersCount,
     int? followingCount,
     bool? isFollowed,
+    bool? isVerified,
   }) {
     return UserProfile(
       id: id,
@@ -151,6 +156,7 @@ class UserProfile {
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       isFollowed: isFollowed ?? this.isFollowed,
+      isVerified: isVerified ?? this.isVerified,
       createdAt: createdAt,
     );
   }
@@ -179,6 +185,7 @@ class UserProfile {
         'followers_count': followersCount,
         'following_count': followingCount,
         'is_followed': isFollowed,
+        'is_verified': isVerified,
         'created_at': createdAt?.toIso8601String(),
       };
 
@@ -212,6 +219,7 @@ class UserProfile {
       followersCount: (json['followers_count'] as num?)?.toInt() ?? 0,
       followingCount: (json['following_count'] as num?)?.toInt() ?? 0,
       isFollowed: json['is_followed'] == true,
+      isVerified: json['is_verified'] == true,
       createdAt: json['created_at'] is String
           ? DateTime.tryParse(json['created_at'] as String)
           : null,
@@ -479,6 +487,41 @@ class FindFriend {
       followStatus: (rawStatus == null || rawStatus.isEmpty)
           ? (isFollowed ? 'accepted' : 'none')
           : rawStatus,
+    );
+  }
+}
+
+/// The signed-in user's verification-badge application state.
+class VerificationStatus {
+  const VerificationStatus({
+    required this.status,
+    this.isVerified = false,
+    this.reviewerNote,
+    this.submittedAt,
+    this.reviewedAt,
+  });
+
+  /// none | pending | approved | rejected.
+  final String status;
+  final bool isVerified;
+  final String? reviewerNote;
+  final DateTime? submittedAt;
+  final DateTime? reviewedAt;
+
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved' || isVerified;
+  bool get isRejected => status == 'rejected';
+  bool get canApply => status == 'none' || status == 'rejected';
+
+  factory VerificationStatus.fromJson(Map<String, dynamic> json) {
+    DateTime? parse(Object? v) =>
+        v is String ? DateTime.tryParse(v) : null;
+    return VerificationStatus(
+      status: (json['status'] ?? 'none').toString(),
+      isVerified: json['is_verified'] == true,
+      reviewerNote: json['reviewer_note'] as String?,
+      submittedAt: parse(json['submitted_at']),
+      reviewedAt: parse(json['reviewed_at']),
     );
   }
 }

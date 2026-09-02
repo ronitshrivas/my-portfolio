@@ -39,7 +39,9 @@ class GlassDrawer extends StatelessWidget {
     this.onSettings,
     this.onFaq,
     this.onKmsChanged,
+    this.onGetVerified,
     this.notificationBadge = 0,
+    this.isVerified = false,
   });
 
   final String name;
@@ -55,7 +57,9 @@ class GlassDrawer extends StatelessWidget {
   final VoidCallback? onSettings;
   final VoidCallback? onFaq;
   final ValueChanged<bool>? onKmsChanged;
+  final VoidCallback? onGetVerified;
   final int notificationBadge;
+  final bool isVerified;
 
   /// Let the liquid wobble play before the drawer slides away.
   void _closeThen(BuildContext context, VoidCallback? action) {
@@ -77,6 +81,11 @@ class GlassDrawer extends StatelessWidget {
       icon: Icons.person_search_rounded,
       label: 'Find friends',
       onTap: onFindFriends,
+    ),
+    GlassDrawerItem(
+      icon: Icons.verified_rounded,
+      label: isVerified ? 'Verified' : 'Get Verification Badge',
+      onTap: onGetVerified,
     ),
     GlassDrawerItem(
       icon: Icons.notifications_none_rounded,
@@ -148,6 +157,7 @@ class GlassDrawer extends StatelessWidget {
                         name: name,
                         title: title,
                         avatarUrl: avatarUrl,
+                        isVerified: isVerified,
                         onTap:
                             onProfile == null
                                 ? null
@@ -305,12 +315,14 @@ class _ProfileHeader extends StatelessWidget {
     required this.title,
     this.avatarUrl,
     this.onTap,
+    this.isVerified = false,
   });
 
   final String name;
   final String title;
   final String? avatarUrl;
   final VoidCallback? onTap;
+  final bool isVerified;
 
   static Widget _initialAvatar(String name) => Center(
     child: Text(
@@ -387,8 +399,10 @@ class _ProfileHeader extends StatelessWidget {
                     letterSpacing: -.3,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const _DrawerInnovatorBadge(),
+                if (isVerified) ...[
+                  const SizedBox(height: 6),
+                  const _DrawerInnovatorBadge(),
+                ],
                 const SizedBox(height: 5),
                 Text(
                   title,

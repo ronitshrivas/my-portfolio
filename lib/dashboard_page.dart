@@ -8,8 +8,10 @@ import 'package:innovator/KMS/core/constants/service/auth_wrapper.dart';
 import 'package:innovator/ecommerce/presentation/pages/cart_page.dart';
 import 'chat_page.dart';
 import 'find_friends_page.dart';
+import 'get_verification_page.dart';
 import 'services/chat_socket.dart';
 import 'services/app_update_service.dart';
+import 'services/notification_poller.dart';
 import 'package:innovator/elearning/presentation/pages/elearning_page.dart';
 import 'login_page.dart';
 import 'notifications_page.dart';
@@ -45,7 +47,8 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage>
+    with WidgetsBindingObserver {
   // Bar layout: Chat, E-learning, Search · [logo] · Post, Shop, Menu.
   static const _navLeading = [
     LiquidNavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Chat'),
@@ -71,6 +74,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   bool _showCart = false;
   bool _showProfile = false;
   bool _showNotifications = false;
+  // True while a chat conversation thread is open — hides the nav bar so the
+  // composer sits directly above the keyboard.
+  bool _chatThreadActive = false;
   bool _dragging = false;
   Offset _dragPos = Offset.zero;
   NavDock? _previewDock;
@@ -115,6 +121,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       if (id.isNotEmpty && !_seenBadgeMessageIds.add(id)) return;
       ref.read(chatUnreadCountProvider.notifier).increment();
     });
+    // Foreground notification poller: shows heads-up alerts for new
+    // notifications even if FCM delivery is dropped by the OS, and refreshes
+    // the drawer badge when new items land.
+    WidgetsBinding.instance.addObserver(this);
+    NotificationPoller.instance.onNewNotifications =
+        () => ref.invalidate(notificationsProvider);
+    NotificationPoller.instance.start();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Poll only in the foreground; the OS handles background notifications.
+    if (state == AppLifecycleState.resumed) {
+      NotificationPoller.instance.start();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      NotificationPoller.instance.stop();
+    }
   }
 
   /// A push arrived while the app is open — refresh the affected badge live.
@@ -132,12 +156,18 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
   }
 
-  /// Deep-links a tapped push using its FCM data map.
+  /// Deep-links a tapped push (foreground, background, or cold-start) using its
+  /// FCM data map. Routes to the specific destination for each notification
+  /// type: message → chat, follow → follow requests, like/comment/repost/
+  /// mention/post → the specific post, and anything else → the notifications
+  /// list.
   void _handleNotificationTap(Map<String, dynamic> data) {
     if (!mounted) return;
     final type = (data['type'] ?? '').toString().toLowerCase();
-    final postId = (data['related_post_id'] ?? '').toString().trim();
+    final postId =
+        (data['related_post_id'] ?? data['post_id'] ?? '').toString().trim();
 
+    // Messages open the Chat tab.
     if (type == 'message') {
       setState(() {
         _selected = _chatIndex;
@@ -147,6 +177,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       });
       return;
     }
+
+    // Follows open the follow-requests / connections screen.
     if (type == 'follow') {
       Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const FollowRequestsPage()),
@@ -154,14 +186,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return;
     }
 
+    // Post-related notifications open the exact post.
+    const postTypes = {'like', 'comment', 'reply', 'repost', 'mention', 'post'};
+    if (postId.isNotEmpty && (postTypes.contains(type) || type.isEmpty)) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => SinglePostPage(postId: postId)),
+      );
+      return;
+    }
+
+    // Fallback: open the notifications list.
     setState(() {
       _showNotifications = true;
       _showProfile = false;
       _showCart = false;
       _selected = -1;
     });
-    // postId is available for a future post-detail deep-link.
-    if (postId.isEmpty) return;
   }
 
   Future<void> _loadAvatar() async {
@@ -192,6 +232,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
     _chatBadgeSub?.cancel();
     AppUpdateService.instance.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    NotificationPoller.instance.stop();
     _scroll.dispose();
     super.dispose();
   }
@@ -280,6 +322,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       _showCart = false;
       _showProfile = false;
       _showNotifications = false;
+      // Leaving via the nav bar means we're no longer in a chat thread.
+      if (item.label != 'Chat') _chatThreadActive = false;
     });
     if (item.label == 'Chat') {
       ref.read(chatUnreadCountProvider.notifier).refresh();
@@ -429,6 +473,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         name: drawerName,
         title: 'Premium Member',
         avatarUrl: drawerAvatar,
+        isVerified:
+            ref.watch(currentUserProvider.select((u) => u?.isVerified)) ?? false,
         notificationBadge: ref.watch(notificationUnreadCountProvider),
         onLogout: _logout,
         onProfile:
@@ -441,6 +487,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         onFindFriends: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const FindFriendsPage()),
+          );
+        },
+        onGetVerified: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const GetVerificationPage()),
           );
         },
         onShop:
@@ -576,6 +627,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           ? ChatSection(
                             key: const ValueKey('chat'),
                             contentPadding: _feedPadding,
+                            onThreadActive: (active) {
+                              if (_chatThreadActive == active) return;
+                              setState(() => _chatThreadActive = active);
+                            },
                           )
                           : _selected == _postIndex
                           ? PostSection(
@@ -617,6 +672,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildNav(BuildContext context) {
+    // Hide the nav bar entirely while a chat thread is open, so the composer
+    // sits directly above the keyboard with no floating bar overlapping it.
+    if (_chatThreadActive) return const SizedBox.shrink();
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final bar = GestureDetector(
       onPanStart: _onDragStart,

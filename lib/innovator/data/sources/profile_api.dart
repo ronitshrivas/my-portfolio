@@ -303,6 +303,66 @@ class ProfileApi {
         );
   }
 
+  /// Submits the multi-phase verification application (details + profile photo).
+  Future<VerificationStatus> submitVerification({
+    required String fullName,
+    String? dateOfBirth,
+    String? gender,
+    String? phone,
+    String? address,
+    String? occupation,
+    String? education,
+    String? bio,
+    Uint8List? photoBytes,
+    String photoFilename = 'verification.jpg',
+  }) async {
+    final formData = FormData();
+    formData.fields.add(MapEntry('FullName', fullName));
+    void add(String key, String? value) {
+      if (value != null) formData.fields.add(MapEntry(key, value));
+    }
+
+    add('DateOfBirth', dateOfBirth);
+    add('Gender', gender);
+    add('Phone', phone);
+    add('Address', address);
+    add('Occupation', occupation);
+    add('Education', education);
+    add('Bio', bio);
+    if (photoBytes != null && photoBytes.isNotEmpty) {
+      formData.files.add(MapEntry(
+        'photo',
+        MultipartFile.fromBytes(photoBytes, filename: photoFilename),
+      ));
+    }
+
+    final envelope = await _client.upload<VerificationStatus>(
+      ApiConfig.profileBaseUrl,
+      '/api/users/me/verification',
+      formData: formData,
+      parse: (raw) => VerificationStatus.fromJson(
+        Map<String, dynamic>.from(raw as Map? ?? const {}),
+      ),
+    );
+    final data = envelope.data;
+    if (data == null) {
+      throw ApiException(envelope.message ?? 'Could not submit application');
+    }
+    return data;
+  }
+
+  /// Current user's verification status (none / pending / approved / rejected).
+  Future<VerificationStatus> getVerificationStatus() async {
+    final envelope = await _client.get<VerificationStatus>(
+      ApiConfig.profileBaseUrl,
+      '/api/users/me/verification',
+      parse: (raw) => VerificationStatus.fromJson(
+        Map<String, dynamic>.from(raw as Map? ?? const {}),
+      ),
+    );
+    return envelope.data ?? const VerificationStatus(status: 'none');
+  }
+
   /// Dismisses a suggestion (hidden 30 days). Fire-and-forget; swallow errors.
   Future<void> dismissSuggestion(String id) async {
     try {

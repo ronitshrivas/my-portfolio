@@ -130,6 +130,7 @@ class FeedPostDto {
     this.currentUserReactions = const [],
     this.isFollowed = false,
     this.followStatus = 'none',
+    this.isVerified = false,
     this.sharedPostId,
     this.sharedPost,
     this.createdAt,
@@ -154,6 +155,9 @@ class FeedPostDto {
 
   /// Follow state for private accounts: none | pending | accepted.
   final String followStatus;
+
+  /// Whether the post author has an approved verification badge.
+  final bool isVerified;
   final String? sharedPostId;
   final FeedPostDto? sharedPost;
   final DateTime? createdAt;
@@ -291,6 +295,7 @@ class FeedPostDto {
         if (raw != null && raw.isNotEmpty) return raw;
         return json['is_followed'] == true ? 'accepted' : 'none';
       }(),
+      isVerified: json['is_verified'] == true,
       sharedPostId:
           json['shared_post'] is String
               ? json['shared_post'] as String

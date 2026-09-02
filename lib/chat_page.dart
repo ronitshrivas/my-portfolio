@@ -190,10 +190,18 @@ class _Msg {
 /// thread melt into each other; bubbles carry liquid inside them, the
 /// send orb is a droplet full of ink, and every touch springs.
 class ChatSection extends StatefulWidget {
-  const ChatSection({super.key, this.contentPadding = EdgeInsets.zero});
+  const ChatSection({
+    super.key,
+    this.contentPadding = EdgeInsets.zero,
+    this.onThreadActive,
+  });
 
   /// Clearances from the shell so content stays clear of the docked bar.
   final EdgeInsets contentPadding;
+
+  /// Fired with true when a conversation thread opens and false when it closes,
+  /// so the shell can hide the nav bar while the user is chatting.
+  final ValueChanged<bool>? onThreadActive;
 
   @override
   State<ChatSection> createState() => _ChatSectionState();
@@ -573,6 +581,7 @@ class _ChatSectionState extends State<ChatSection>
       conversation.unread = 0;
       _loadingThread = cached == null;
     });
+    widget.onThreadActive?.call(true);
     try {
       final remote = await _chatApi.listMessages(conversation.id);
       unawaited(() async {
@@ -612,6 +621,7 @@ class _ChatSectionState extends State<ChatSection>
       _open = null;
       _loadingThread = false;
     });
+    widget.onThreadActive?.call(false);
     // List already reflects local unread=0; skip full refetch on every back.
   }
 
@@ -1115,9 +1125,13 @@ class _ChatSectionState extends State<ChatSection>
   Widget _buildThread(_Conversation conversation) {
     final padding = widget.contentPadding;
     final messages = _messages[conversation.id] ?? const <_Msg>[];
+    // When a thread is open the composer should hug the keyboard / bottom edge,
+    // not the nav-bar-reserved space the list padding carries. Use the real
+    // safe-area inset so there's no large gap above the keyboard.
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
     return Padding(
       key: ValueKey('thread-${conversation.id}'),
-      padding: EdgeInsets.fromLTRB(20, padding.top + 8, 20, padding.bottom + 6),
+      padding: EdgeInsets.fromLTRB(20, padding.top + 8, 20, safeBottom + 6),
       child: Column(
         children: [
           _ThreadHeader(

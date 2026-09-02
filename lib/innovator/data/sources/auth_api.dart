@@ -6,6 +6,7 @@ import 'package:innovator/core/network/dio_client.dart';
 import 'package:innovator/services/auth_session.dart';
 import 'package:innovator/services/push_service.dart';
 import 'package:innovator/services/chat_socket.dart';
+import 'package:innovator/services/notification_poller.dart';
 import 'package:innovator/innovator/data/sources/google_auth_service.dart';
 import 'package:innovator/services/memory_cache.dart';
 import 'package:innovator/innovator/data/sources/profile_api.dart';
@@ -397,6 +398,7 @@ class AuthApi {
     // Remove the device's push token before the Bearer is cleared.
     await PushService.instance.unregister();
     ChatSocket.instance.dispose();
+    NotificationPoller.instance.reset();
     try {
       if (AuthSession.instance.isSignedIn) {
         await _client.post<Object?>(
